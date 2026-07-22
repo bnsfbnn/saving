@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase } from './lib/supabase'
 import type {
   AccountSettings,
@@ -78,6 +78,9 @@ const fallbackAccountSettings: AccountSettings = {
   updated_at: new Date().toISOString(),
 }
 
+const authCode = '88269'
+const authStorageKey = 'saving-app-authenticated'
+
 const emptyCategoryDraft: CategoryDraft = {
   name: '',
   kind: 'expense',
@@ -114,6 +117,12 @@ function parseAmount(value: string) {
 }
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.sessionStorage.getItem(authStorageKey) === 'true'
+  })
+  const [authInput, setAuthInput] = useState('')
+  const [authError, setAuthError] = useState('')
   const [screen, setScreen] = useState<Screen>('dashboard')
   const [activeOwner, setActiveOwner] = useState<OwnerId>('wife')
   const [selectedMonth, setSelectedMonth] = useState(monthStartISO())
@@ -181,8 +190,9 @@ function App() {
   )
 
   useEffect(() => {
+    if (!isAuthenticated) return
     void refreshData()
-  }, [])
+  }, [isAuthenticated])
 
   useEffect(() => {
     setOpeningBalanceInput(String(accountSettings.opening_balance))
@@ -218,6 +228,19 @@ function App() {
     setMonthlyBudgets(result.data.monthlyBudgets)
     setMessage(result.message)
     setLoading(false)
+  }
+
+  function unlockApp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (authInput.trim() !== authCode) {
+      setAuthError('Mã authen không đúng.')
+      setAuthInput('')
+      return
+    }
+
+    window.sessionStorage.setItem(authStorageKey, 'true')
+    setAuthError('')
+    setIsAuthenticated(true)
   }
 
   function resetTransactionForm(date = todayISO()) {
@@ -582,6 +605,33 @@ function App() {
           )
         })}
       </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <main className="auth-shell">
+        <form className="auth-card" onSubmit={unlockApp}>
+          <div className="auth-brand">
+            <span>Saving</span>
+            <h1>Nhập mã truy cập</h1>
+          </div>
+          <label>
+            Mã authen
+            <input
+              autoComplete="one-time-code"
+              autoFocus
+              inputMode="numeric"
+              maxLength={5}
+              type="password"
+              value={authInput}
+              onChange={(event) => setAuthInput(event.target.value)}
+            />
+          </label>
+          {authError ? <p className="auth-error" role="alert">{authError}</p> : null}
+          <button type="submit">Vào app</button>
+        </form>
+      </main>
     )
   }
 
