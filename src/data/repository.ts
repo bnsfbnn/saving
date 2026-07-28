@@ -3,24 +3,18 @@ import type { AccountSettings, Category, FixedExpense, MonthlyBudget, Transactio
 import { defaultCategories } from './defaults'
 
 export type AppData = {
-  accountSettings: AccountSettings
+  accountSettingsList: AccountSettings[]
   categories: Category[]
   transactions: Transaction[]
   fixedExpenses: FixedExpense[]
   monthlyBudgets: MonthlyBudget[]
 }
 
-const fallbackAccountSettings: AccountSettings = {
-  id: 'main',
-  opening_balance: 0,
-  updated_at: new Date().toISOString(),
-}
-
 export async function loadAppData(): Promise<{ data: AppData; message: string }> {
   if (!supabase) {
     return {
       data: {
-        accountSettings: fallbackAccountSettings,
+        accountSettingsList: [],
         categories: defaultCategories.map((category, index) => ({
           id: `default-${index}`,
           ...category,
@@ -40,14 +34,14 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     supabase.from('transactions').select('*').order('occurred_on', { ascending: false }),
     supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false }),
     supabase.from('monthly_budgets').select('*').order('month_start', { ascending: false }),
-    supabase.from('account_settings').select('*').eq('id', 'main').maybeSingle(),
+    supabase.from('account_settings').select('*'),
   ])
 
   const firstError = categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error ?? monthlyBudgetsRes.error ?? accountRes.error
   if (firstError) {
     return {
       data: {
-        accountSettings: fallbackAccountSettings,
+        accountSettingsList: [],
         categories: [],
         transactions: [],
         fixedExpenses: [],
@@ -69,19 +63,9 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     if (!error) categories = (data as Category[]) ?? []
   }
 
-  let accountSettings = accountRes.data as AccountSettings | null
-  if (!accountSettings) {
-    const { data } = await supabase
-      .from('account_settings')
-      .upsert({ id: 'main', opening_balance: 0 }, { onConflict: 'id' })
-      .select('*')
-      .single()
-    accountSettings = (data as AccountSettings | null) ?? fallbackAccountSettings
-  }
-
   return {
     data: {
-      accountSettings,
+      accountSettingsList: (accountRes.data as AccountSettings[]) ?? [],
       categories,
       transactions: (transactionsRes.data as Transaction[]) ?? [],
       fixedExpenses: (fixedExpensesRes.data as FixedExpense[]) ?? [],

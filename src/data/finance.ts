@@ -1,4 +1,4 @@
-import type { Category, FixedExpense, MonthlyBudget, OwnerId, Transaction } from '../types'
+import type { Category, FixedExpense, OwnerId, Transaction } from '../types'
 
 export type CalendarDay = {
   iso: string
@@ -15,7 +15,6 @@ export type FixedOccurrence = {
 }
 
 export type MonthlySummary = {
-  startingAmount: number
   income: number
   variableExpense: number
   fixedExpense: number
@@ -147,7 +146,6 @@ export function calculateMainBalance(openingBalance: number, transactions: Trans
 export function calculateMonthlySummary(
   transactions: Transaction[],
   fixedExpenses: FixedExpense[],
-  budget: MonthlyBudget | undefined,
   ownerId: OwnerId,
   monthStart: string,
 ): MonthlySummary {
@@ -156,16 +154,14 @@ export function calculateMonthlySummary(
   const income = sum(monthTransactions.filter((item) => item.type === 'income').map((item) => item.amount))
   const variableExpense = sum(monthTransactions.filter((item) => item.type === 'expense').map((item) => item.amount))
   const fixedExpense = sum(fixedOccurrences.map((item) => item.amount))
-  const startingAmount = budget?.starting_amount ?? 0
   const totalExpense = variableExpense + fixedExpense
 
   return {
-    startingAmount,
     income,
     variableExpense,
     fixedExpense,
     totalExpense,
-    remaining: startingAmount + income - totalExpense,
+    remaining: income - totalExpense,
   }
 }
 
