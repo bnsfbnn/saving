@@ -138,8 +138,9 @@ export function fixedOccurrencesForMonth(fixedExpenses: FixedExpense[], ownerId:
   return occurrences.sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export function calculateMainBalance(openingBalance: number, transactions: Transaction[]) {
-  return transactions.reduce((balance, transaction) => {
+export function calculateMainBalance(openingBalance: number, transactions: Transaction[], ownerId?: OwnerId) {
+  const filtered = ownerId ? transactions.filter((t) => t.owner_id === ownerId) : transactions
+  return filtered.reduce((balance, transaction) => {
     return transaction.type === 'income' ? balance + transaction.amount : balance - transaction.amount
   }, openingBalance)
 }

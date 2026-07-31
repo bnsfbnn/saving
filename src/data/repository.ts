@@ -3,18 +3,25 @@ import type { AccountSettings, Category, FixedExpense, MonthlyBudget, Transactio
 import { defaultCategories } from './defaults'
 
 export type AppData = {
-  accountSettings: AccountSettings
+  accountSettings: AccountSettings[]
   categories: Category[]
   transactions: Transaction[]
   fixedExpenses: FixedExpense[]
   monthlyBudgets: MonthlyBudget[]
 }
 
-const fallbackAccountSettings: AccountSettings = {
-  id: 'main',
-  opening_balance: 0,
-  updated_at: new Date().toISOString(),
-}
+const fallbackAccountSettings: AccountSettings[] = [
+  {
+    owner_id: 'wife',
+    opening_balance: 0,
+    updated_at: new Date().toISOString(),
+  },
+  {
+    owner_id: 'husband',
+    opening_balance: 0,
+    updated_at: new Date().toISOString(),
+  },
+]
 
 export async function loadAppData(): Promise<{ data: AppData; message: string }> {
   if (!supabase) {
@@ -40,7 +47,7 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     supabase.from('transactions').select('*').order('occurred_on', { ascending: false }),
     supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false }),
     supabase.from('monthly_budgets').select('*').order('month_start', { ascending: false }),
-    supabase.from('account_settings').select('*').eq('id', 'main').maybeSingle(),
+    supabase.from('account_settings').select('*').order('owner_id', { ascending: true }),
   ])
 
   const firstError = categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error ?? monthlyBudgetsRes.error ?? accountRes.error
@@ -69,14 +76,26 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     if (!error) categories = (data as Category[]) ?? []
   }
 
-  let accountSettings = accountRes.data as AccountSettings | null
-  if (!accountSettings) {
+  let accountSettings = (accountRes.data as AccountSettings[]) ?? []
+
+  // Đảm bảo cả vợ và chồng đều có account_settings
+  const requiredOwners = ['wife', 'husband'] as const
+  const missingOwners = requiredOwners.filter(
+    (ownerId) => !accountSettings.some((settings) => settings.owner_id === ownerId),
+  )
+
+  if (missingOwners.length > 0) {
     const { data } = await supabase
       .from('account_settings')
-      .upsert({ id: 'main', opening_balance: 0 }, { onConflict: 'id' })
+      .upsert(
+        missingOwners.map((ownerId) => ({ owner_id: ownerId, opening_balance: 0 })),
+        { onConflict: 'owner_id' },
+      )
       .select('*')
-      .single()
-    accountSettings = (data as AccountSettings | null) ?? fallbackAccountSettings
+
+    if (data) {
+      accountSettings = [...accountSettings, ...(data as AccountSettings[])]
+    }
   }
 
   return {

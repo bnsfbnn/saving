@@ -2,7 +2,7 @@ export type OwnerId = 'wife' | 'husband'
 export type CategoryKind = 'income' | 'expense' | 'fixed_expense'
 export type TransactionType = 'income' | 'expense'
 export type FixedFrequency = 'weekly' | 'monthly'
-export type Screen = 'dashboard' | 'account' | 'calendar' | 'fixed' | 'categories' | 'monthly'
+export type Screen = 'dashboard' | 'calendar' | 'fixed' | 'categories'
 
 export type Profile = {
   id: OwnerId
@@ -59,7 +59,7 @@ export type MonthlyBudget = {
 }
 
 export type AccountSettings = {
-  id: 'main'
+  owner_id: OwnerId
   opening_balance: number
   updated_at: string
 }

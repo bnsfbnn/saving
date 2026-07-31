@@ -63,20 +63,17 @@ type FixedExpenseDraft = {
   note: string
 }
 
-const screens: Array<{ id: Screen; label: string }> = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'account', label: 'Tài khoản chính' },
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'fixed', label: 'Chi cố định' },
-  { id: 'categories', label: 'Category' },
-  { id: 'monthly', label: 'Tiền còn lại tháng' },
+const screens: Array<{ id: Screen; label: string; icon: string }> = [
+  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { id: 'calendar', label: 'Calendar', icon: '📅' },
+  { id: 'fixed', label: 'Chi cố định', icon: '🔄' },
+  { id: 'categories', label: 'Category', icon: '🏷️' },
 ]
 
-const fallbackAccountSettings: AccountSettings = {
-  id: 'main',
-  opening_balance: 0,
-  updated_at: new Date().toISOString(),
-}
+const fallbackAccountSettings: AccountSettings[] = [
+  { owner_id: 'wife', opening_balance: 0, updated_at: new Date().toISOString() },
+  { owner_id: 'husband', opening_balance: 0, updated_at: new Date().toISOString() },
+]
 
 const authCode = '88269'
 const authStorageKey = 'saving-app-authenticated'
@@ -129,7 +126,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
 
-  const [accountSettings, setAccountSettings] = useState<AccountSettings>(fallbackAccountSettings)
+  const [accountSettings, setAccountSettings] = useState<AccountSettings[]>(fallbackAccountSettings)
   const [openingBalanceInput, setOpeningBalanceInput] = useState('0')
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -158,10 +155,17 @@ function App() {
     [activeOwner, monthlyBudgets, selectedMonth],
   )
 
-  const mainBalance = useMemo(
-    () => calculateMainBalance(accountSettings.opening_balance, transactions),
-    [accountSettings.opening_balance, transactions],
+  const activeAccountSettings = useMemo(
+    () => accountSettings.find((s) => s.owner_id === activeOwner) ?? { owner_id: activeOwner, opening_balance: 0, updated_at: new Date().toISOString() },
+    [accountSettings, activeOwner],
   )
+
+  const mainBalance = useMemo(
+    () => calculateMainBalance(activeAccountSettings.opening_balance, transactions, activeOwner),
+    [activeAccountSettings.opening_balance, transactions, activeOwner],
+  )
+
+  const hasAccountSettings = activeAccountSettings.opening_balance > 0
 
   const monthlySummary = useMemo(
     () => calculateMonthlySummary(transactions, fixedExpenses, activeMonthlyBudget, activeOwner, selectedMonth),
@@ -195,8 +199,8 @@ function App() {
   }, [isAuthenticated])
 
   useEffect(() => {
-    setOpeningBalanceInput(String(accountSettings.opening_balance))
-  }, [accountSettings.opening_balance])
+    setOpeningBalanceInput(String(activeAccountSettings.opening_balance))
+  }, [activeAccountSettings.opening_balance])
 
   useEffect(() => {
     setMonthlyAmountInput(String(activeMonthlyBudget?.starting_amount ?? 0))
@@ -279,7 +283,7 @@ function App() {
     })
     setEditingTransactionId(transaction.id)
     setActiveOwner(transaction.owner_id)
-    setScreen(transaction.type === 'expense' ? 'calendar' : 'account')
+    setScreen('calendar')
   }
 
   function startEditCategory(category: Category) {
@@ -315,12 +319,17 @@ function App() {
 
     const { data, error } = await supabase
       .from('account_settings')
-      .upsert({ id: 'main', opening_balance: openingBalance }, { onConflict: 'id' })
+      .upsert({ owner_id: activeOwner, opening_balance: openingBalance }, { onConflict: 'owner_id' })
       .select('*')
       .single()
 
     if (error) return setMessage(error.message)
-    setAccountSettings(data as AccountSettings)
+    const saved = data as AccountSettings
+    setAccountSettings((current) => {
+      const exists = current.some((s) => s.owner_id === activeOwner)
+      if (exists) return current.map((s) => (s.owner_id === activeOwner ? saved : s))
+      return [...current, saved]
+    })
     setMessage('Đã cập nhật tài khoản chính.')
   }
 
@@ -655,6 +664,7 @@ function App() {
         <nav className="nav-list">
           {screens.map((item) => (
             <button className={screen === item.id ? 'nav-button active' : 'nav-button'} key={item.id} onClick={() => setScreen(item.id)} type="button">
+              <span className="nav-icon">{item.icon}</span>
               {item.label}
             </button>
           ))}
@@ -675,17 +685,63 @@ function App() {
 
         {screen === 'dashboard' ? (
           <>
-            <section className="metrics-grid">
-              <article className="metric-card"><span>Tài khoản chính</span><strong>{currency(mainBalance)}</strong></article>
-              <article className="metric-card"><span>Còn lại tháng</span><strong>{currency(monthlySummary.remaining)}</strong></article>
-              <article className="metric-card"><span>Thu trong tháng</span><strong>{currency(monthlySummary.income)}</strong></article>
-              <article className="metric-card"><span>Chi trong tháng</span><strong>{currency(monthlySummary.totalExpense)}</strong></article>
+            {/* Account initialization prompt */}
+            {!hasAccountSettings && !loading ? (
+              <section className="panel account-init-panel">
+                <div className="account-init-content">
+                  <span className="account-init-icon">🏦</span>
+                  <h2>Bắt đầu tiết kiệm</h2>
+                  <p>Nhập số tiền hiện có để bắt đầu theo dõi tài chính.</p>
+                  <div className="form-grid inline-form">
+                    <label>
+                      Số tiền hiện có (VND)
+                      <input inputMode="decimal" value={openingBalanceInput} onChange={(event) => setOpeningBalanceInput(event.target.value)} placeholder="Ví dụ: 5000000" />
+                    </label>
+                    <button onClick={() => void saveAccountSettings()} type="button">Bắt đầu</button>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
+            {/* Big Account Balance Card */}
+            <section className="account-hero-card">
+              <div className="account-hero-top">
+                <span className="account-hero-label">💰 {activeProfile.label} — Tài khoản chính</span>
+                <div className="account-hero-edit">
+                  <input className="account-hero-input" inputMode="decimal" value={openingBalanceInput} onChange={(event) => setOpeningBalanceInput(event.target.value)} title="Sửa số dư ban đầu" />
+                  <button className="ghost-button small" onClick={() => void saveAccountSettings()} type="button">Cập nhật</button>
+                </div>
+              </div>
+              <div className="account-hero-balance">
+                <span className={mainBalance >= 0 ? 'money-positive' : 'money-negative'}>{currency(mainBalance)}</span>
+              </div>
+              <div className="account-hero-sub">
+                <span>Số dư ban đầu: <strong>{currency(activeAccountSettings.opening_balance)}</strong></span>
+                <span>Giao dịch: <strong>{transactions.filter((t) => t.owner_id === activeOwner).length}</strong></span>
+              </div>
             </section>
 
+            {/* Metrics: Thu / Chi / Còn lại theo tháng */}
+            <section className="metrics-grid">
+              <article className="metric-card income">
+                <span>Thu trong tháng</span>
+                <strong className="money-positive">{currency(monthlySummary.income)}</strong>
+              </article>
+              <article className="metric-card expense">
+                <span>Chi trong tháng</span>
+                <strong className="money-negative">{currency(monthlySummary.totalExpense)}</strong>
+              </article>
+              <article className="metric-card remaining">
+                <span>Còn lại tháng</span>
+                <strong className={monthlySummary.remaining >= 0 ? 'money-positive' : 'money-negative'}>{currency(monthlySummary.remaining)}</strong>
+              </article>
+            </section>
+
+            {/* Breakdown chi + Chi cố định */}
             <section className="dashboard-grid">
               <div className="panel">
                 <div className="section-head">
-                  <h2>Tỷ trọng chi theo category</h2>
+                  <h2>📊 Tỷ trọng chi theo category</h2>
                   <span>{monthLabel(selectedMonth)}</span>
                 </div>
                 <div className="breakdown-list">
@@ -706,7 +762,7 @@ function App() {
 
               <div className="panel">
                 <div className="section-head">
-                  <h2>Chi cố định tháng</h2>
+                  <h2>🔄 Chi cố định tháng</h2>
                   <strong>{currency(monthlySummary.fixedExpense)}</strong>
                 </div>
                 <div className="compact-list">
@@ -725,40 +781,43 @@ function App() {
               </div>
             </section>
 
+            {/* Monthly Summary (từ màn Tiền còn lại tháng cũ) */}
+            <section className="panel">
+              <div className="section-head">
+                <h2>📋 Tổng hợp {monthLabel(selectedMonth)}</h2>
+                <div className="month-budget-form">
+                  <input className="budget-input" inputMode="decimal" value={monthlyAmountInput} onChange={(event) => setMonthlyAmountInput(event.target.value)} title="Số tiền đầu tháng" />
+                  <button className="ghost-button small" onClick={() => void saveMonthlyBudget()} type="button">Lưu tháng</button>
+                </div>
+              </div>
+              <div className="summary-lines">
+                <div><span>Đầu tháng</span><strong>{currency(monthlySummary.startingAmount)}</strong></div>
+                <div><span>Thu</span><strong className="money-positive">+{currency(monthlySummary.income)}</strong></div>
+                <div><span>Chi thường</span><strong className="money-negative">-{currency(monthlySummary.variableExpense)}</strong></div>
+                <div><span>Chi cố định</span><strong className="money-negative">-{currency(monthlySummary.fixedExpense)}</strong></div>
+                <div className="summary-total"><span>Còn lại</span><strong>{currency(monthlySummary.remaining)}</strong></div>
+              </div>
+            </section>
+
+            {/* Budget history */}
+            {monthlyBudgets.filter((b) => b.owner_id === activeOwner).length > 0 ? (
+              <section className="panel wide-panel">
+                <h2>📅 Các tháng đã lưu</h2>
+                <div className="table-wrap"><table><thead><tr><th>Tháng</th><th>Số tiền đầu tháng</th><th>Ghi chú</th></tr></thead><tbody>
+                  {monthlyBudgets.filter((budget) => budget.owner_id === activeOwner).map((budget) => (
+                    <tr key={budget.id}><td>{monthLabel(budget.month_start)}</td><td>{currency(budget.starting_amount)}</td><td>{budget.note}</td></tr>
+                  ))}
+                </tbody></table></div>
+              </section>
+            ) : null}
+
+            {/* Recent transactions */}
             <section className="panel">
               <div className="section-head">
                 <h2>Giao dịch gần đây</h2>
-                <button className="ghost-button" onClick={() => setScreen('account')} type="button">Thêm thu/chi</button>
+                <button className="ghost-button" onClick={() => setScreen('calendar')} type="button">Thêm thu/chi</button>
               </div>
               {renderTransactionList(recentOwnerTransactions)}
-            </section>
-          </>
-        ) : null}
-
-        {screen === 'account' ? (
-          <>
-            <section className="metrics-grid three-cols">
-              <article className="metric-card"><span>Số dư khởi tạo</span><strong>{currency(accountSettings.opening_balance)}</strong></article>
-              <article className="metric-card"><span>Số dư hiện tại</span><strong>{currency(mainBalance)}</strong></article>
-              <article className="metric-card"><span>Giao dịch đã ghi</span><strong>{transactions.length}</strong></article>
-            </section>
-
-            <section className="panel form-panel">
-              <h2>Cấu hình tài khoản chính</h2>
-              <div className="form-grid inline-form">
-                <label>
-                  Số dư ban đầu
-                  <input inputMode="decimal" value={openingBalanceInput} onChange={(event) => setOpeningBalanceInput(event.target.value)} />
-                </label>
-                <button onClick={() => void saveAccountSettings()} type="button">Lưu số dư</button>
-              </div>
-            </section>
-
-            {renderTransactionForm('Ghi thu/chi')}
-
-            <section className="panel">
-              <h2>Giao dịch của {activeProfile.label.toLowerCase()}</h2>
-              {renderTransactionList(transactions.filter((transaction) => transaction.owner_id === activeOwner))}
             </section>
           </>
         ) : null}
@@ -771,16 +830,20 @@ function App() {
               </div>
               <div className="calendar-grid">
                 {calendarDays.map((day) => {
-                  const dayExpenses = monthTransactions.filter((transaction) => transaction.type === 'expense' && transaction.occurred_on === day.iso)
+                  const dayTransactions = monthTransactions.filter((t) => t.occurred_on === day.iso)
                   return (
                     <button className={day.inMonth ? 'calendar-day' : 'calendar-day outside'} key={day.iso} onClick={() => prepareExpenseForDate(day.iso)} type="button">
                       <strong>{day.dayNumber}</strong>
                       <div className="day-items">
-                        {dayExpenses.slice(0, 3).map((transaction) => {
+                        {dayTransactions.slice(0, 3).map((transaction) => {
                           const category = categoryLookup.get(transaction.category_id)
-                          return <span key={transaction.id}>{category?.name ?? 'Chi'} - {currency(transaction.amount)}{transaction.note ? ` - ${transaction.note}` : ''}</span>
+                          return (
+                            <span key={transaction.id} className={transaction.type === 'income' ? 'day-item-income' : 'day-item-expense'}>
+                              {category?.name ?? (transaction.type === 'income' ? 'Thu' : 'Chi')} · {currency(transaction.amount)}
+                            </span>
+                          )
                         })}
-                        {dayExpenses.length > 3 ? <em>+{dayExpenses.length - 3}</em> : null}
+                        {dayTransactions.length > 3 ? <em>+{dayTransactions.length - 3}</em> : null}
                       </div>
                     </button>
                   )
@@ -789,10 +852,13 @@ function App() {
             </div>
 
             <div className="side-stack">
-              {renderTransactionForm('Thêm khoản chi', 'expense')}
+              {renderTransactionForm('Ghi thu / chi')}
               <section className="panel">
-                <h2>Khoản chi trong tháng</h2>
-                {renderTransactionList(monthTransactions.filter((transaction) => transaction.type === 'expense'))}
+                <div className="section-head">
+                  <h2>Giao dịch trong tháng</h2>
+                  <span>{monthTransactions.length} giao dịch</span>
+                </div>
+                {renderTransactionList(monthTransactions)}
               </section>
             </div>
           </section>
@@ -880,35 +946,6 @@ function App() {
           </section>
         ) : null}
 
-        {screen === 'monthly' ? (
-          <section className="split-layout">
-            <div className="panel form-panel">
-              <h2>Số tiền còn lại của tháng</h2>
-              <div className="form-grid"><label>Số tiền đầu tháng<input inputMode="decimal" value={monthlyAmountInput} onChange={(event) => setMonthlyAmountInput(event.target.value)} /></label><label>Ghi chú tháng<input value={monthlyNoteInput} onChange={(event) => setMonthlyNoteInput(event.target.value)} /></label></div>
-              <div className="form-actions"><button onClick={() => void saveMonthlyBudget()} type="button">Lưu tháng</button></div>
-            </div>
-
-            <div className="panel">
-              <h2>Tổng hợp {monthLabel(selectedMonth)}</h2>
-              <div className="summary-lines">
-                <div><span>Đầu tháng</span><strong>{currency(monthlySummary.startingAmount)}</strong></div>
-                <div><span>Thu</span><strong className="money-positive">+{currency(monthlySummary.income)}</strong></div>
-                <div><span>Chi thường</span><strong className="money-negative">-{currency(monthlySummary.variableExpense)}</strong></div>
-                <div><span>Chi cố định</span><strong className="money-negative">-{currency(monthlySummary.fixedExpense)}</strong></div>
-                <div className="summary-total"><span>Còn lại</span><strong>{currency(monthlySummary.remaining)}</strong></div>
-              </div>
-            </div>
-
-            <div className="panel wide-panel">
-              <h2>Các tháng đã lưu</h2>
-              <div className="table-wrap"><table><thead><tr><th>Tháng</th><th>Người</th><th>Số tiền đầu tháng</th><th>Ghi chú</th></tr></thead><tbody>
-                {monthlyBudgets.filter((budget) => budget.owner_id === activeOwner).map((budget) => (
-                  <tr key={budget.id}><td>{monthLabel(budget.month_start)}</td><td>{activeProfile.label}</td><td>{currency(budget.starting_amount)}</td><td>{budget.note}</td></tr>
-                ))}
-              </tbody></table></div>
-            </div>
-          </section>
-        ) : null}
       </main>
     </div>
   )
