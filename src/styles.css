@@ -659,6 +659,16 @@ th { color: var(--muted); font-size: 0.86rem; }
 .summary-lines div:last-child { border-bottom: 0; }
 .summary-total strong { color: var(--accent); font-size: 1.3rem; }
 
+.carry-forward-hint {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface-muted);
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
 /* ========== TABLET (<= 1024px) ========== */
 @media (max-width: 1024px) {
   .app-shell { grid-template-columns: 1fr; }

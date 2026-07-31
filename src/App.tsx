@@ -28,11 +28,16 @@ import {
   calculateMonthlySummary,
   currency,
   fixedOccurrencesForMonth,
+  isInMonth,
   monthInputValue,
   monthLabel,
   monthStartISO,
   todayISO,
   transactionsForOwnerAndMonth,
+  sum,
+  daysInMonth,
+  parseISODate,
+  formatISODate,
 } from './data/finance'
 import { loadAppData } from './data/repository'
 
@@ -141,8 +146,6 @@ function App() {
   const [editingCategoryId, setEditingCategoryId] = useState('')
   const [fixedDraft, setFixedDraft] = useState<FixedExpenseDraft>(() => createFixedExpenseDraft())
   const [editingFixedExpenseId, setEditingFixedExpenseId] = useState('')
-  const [monthlyAmountInput, setMonthlyAmountInput] = useState('0')
-  const [monthlyNoteInput, setMonthlyNoteInput] = useState('')
 
   const activeProfile = profiles.find((profile) => profile.id === activeOwner) ?? profiles[0]
 
@@ -206,10 +209,46 @@ function App() {
     setOpeningBalanceInput(String(activeAccountSettings?.opening_balance ?? 0))
   }, [activeAccountSettings?.opening_balance])
 
+  // Tự động lưu còn lại tháng trước sang tháng hiện tại
   useEffect(() => {
-    setMonthlyAmountInput(String(activeMonthlyBudget?.starting_amount ?? 0))
-    setMonthlyNoteInput(activeMonthlyBudget?.note ?? '')
-  }, [activeMonthlyBudget])
+    if (loading || !activeAccountSettings || !supabase) return
+    if (activeMonthlyBudget) return // Đã có budget cho tháng này
+
+    // Tính remaining của tháng trước
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const prevMonthDate = new Date(year, month - 2, 1)
+    const prevMonthStart = formatISODate(prevMonthDate)
+
+    const prevMonthTxs = transactionsForOwnerAndMonth(transactions, activeOwner, prevMonthStart)
+    const prevMonthFixed = fixedOccurrencesForMonth(fixedExpenses, activeOwner, prevMonthStart)
+    const prevIncome = sum(prevMonthTxs.filter((t) => t.type === 'income').map((t) => t.amount))
+    const prevExpense = sum(prevMonthTxs.filter((t) => t.type === 'expense').map((t) => t.amount))
+    const prevFixed = sum(prevMonthFixed.map((o) => o.amount))
+    const openingBalance = activeAccountSettings.opening_balance ?? 0
+    const prevRemaining = openingBalance + prevIncome - prevExpense - prevFixed
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from('monthly_budgets')
+        .upsert({
+          owner_id: activeOwner,
+          month_start: selectedMonth,
+          starting_amount: prevRemaining,
+          note: 'Tự động từ tháng trước',
+        }, { onConflict: 'owner_id,month_start' })
+        .select('*')
+        .single()
+
+      if (!error && data) {
+        const saved = data as MonthlyBudget
+        setMonthlyBudgets((current) => {
+          const exists = current.some((b) => b.id === saved.id)
+          if (exists) return current.map((b) => (b.id === saved.id ? saved : b))
+          return [saved, ...current]
+        })
+      }
+    })()
+  }, [selectedMonth, activeOwner, activeMonthlyBudget, loading, activeAccountSettings, transactions, fixedExpenses])
 
   useEffect(() => {
     if (transactionCategoryOptions.length === 0) return
@@ -494,34 +533,6 @@ function App() {
     setFixedExpenses((current) => current.filter((item) => item.id !== id))
     if (editingFixedExpenseId === id) resetFixedExpenseForm()
     setMessage('Đã xóa khoản chi cố định.')
-  }
-
-  async function saveMonthlyBudget() {
-    const startingAmount = parseAmount(monthlyAmountInput)
-    if (!Number.isFinite(startingAmount)) return setMessage('Số tiền tháng không hợp lệ.')
-    if (!supabase) return setMessage('Chưa cấu hình Supabase nên chưa thể lưu.')
-
-    const payload = {
-      owner_id: activeOwner,
-      month_start: selectedMonth,
-      starting_amount: startingAmount,
-      note: monthlyNoteInput.trim(),
-    }
-
-    const { data, error } = await supabase
-      .from('monthly_budgets')
-      .upsert(payload, { onConflict: 'owner_id,month_start' })
-      .select('*')
-      .single()
-
-    if (error) return setMessage(error.message)
-    const savedBudget = data as MonthlyBudget
-    setMonthlyBudgets((current) => {
-      const exists = current.some((item) => item.id === savedBudget.id)
-      if (exists) return current.map((item) => (item.id === savedBudget.id ? savedBudget : item))
-      return [savedBudget, ...current]
-    })
-    setMessage('Đã cập nhật số tiền tháng.')
   }
 
   function renderMonthPicker() {
@@ -813,17 +824,14 @@ function App() {
               </div>
             </section>
 
-            {/* Monthly Summary (từ màn Tiền còn lại tháng cũ) */}
+            {/* Monthly Summary - tự động lưu carry-forward */}
             <section className="panel">
               <div className="section-head">
                 <h2>📋 Tổng hợp {monthLabel(selectedMonth)}</h2>
-                <div className="month-budget-form">
-                  <input className="budget-input" inputMode="decimal" value={monthlyAmountInput} onChange={(event) => setMonthlyAmountInput(event.target.value)} title="Số tiền đầu tháng" />
-                  <button className="ghost-button small" onClick={() => void saveMonthlyBudget()} type="button">Lưu tháng</button>
-                </div>
+                <span className="carry-forward-hint">Tự động từ tháng trước</span>
               </div>
               <div className="summary-lines">
-                <div><span>Đầu tháng</span><strong>{currency(monthlySummary.startingAmount)}</strong></div>
+                <div><span>Đầu tháng (còn lại tháng trước)</span><strong>{currency(monthlySummary.startingAmount)}</strong></div>
                 <div><span>Thu</span><strong className="money-positive">+{currency(monthlySummary.income)}</strong></div>
                 <div><span>Chi thường</span><strong className="money-negative">-{currency(monthlySummary.variableExpense)}</strong></div>
                 <div><span>Chi cố định</span><strong className="money-negative">-{currency(monthlySummary.fixedExpense)}</strong></div>
