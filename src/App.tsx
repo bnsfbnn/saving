@@ -114,6 +114,8 @@ function parseAmount(value: string) {
 }
 
 function App() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (typeof window === 'undefined') return false
     return window.sessionStorage.getItem(authStorageKey) === 'true'
@@ -646,7 +648,24 @@ function App() {
 
   return (
     <div className={`app-shell ${activeProfile.themeClass}`}>
-      <aside className="sidebar">
+      {/* Mobile top bar */}
+      <header className="mobile-topbar">
+        <button className="hamburger-btn" onClick={() => setSidebarOpen(!sidebarOpen)} type="button">
+          {sidebarOpen ? '✕' : '☰'}
+        </button>
+        <div className="mobile-topbar-info">
+          <strong>{activeProfile.label}</strong>
+          <span>{screens.find((item) => item.id === screen)?.label}</span>
+        </div>
+        <div className="mobile-topbar-right">
+          <span className="mobile-month">{monthLabel(selectedMonth)}</span>
+        </div>
+      </header>
+
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen ? <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} /> : null}
+
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <div className="brand-block">
           <span>Saving</span>
           <strong>Quản lý thu chi</strong>
@@ -654,7 +673,7 @@ function App() {
 
         <div className="profile-switcher" aria-label="Chọn giao diện">
           {profiles.map((profile) => (
-            <button className={profile.id === activeOwner ? 'profile-button active' : 'profile-button'} key={profile.id} onClick={() => setActiveOwner(profile.id)} type="button">
+            <button className={profile.id === activeOwner ? 'profile-button active' : 'profile-button'} key={profile.id} onClick={() => { setActiveOwner(profile.id); setSidebarOpen(false); }} type="button">
               <span style={{ backgroundColor: profile.accent }} />
               {profile.shortLabel}
             </button>
@@ -663,13 +682,23 @@ function App() {
 
         <nav className="nav-list">
           {screens.map((item) => (
-            <button className={screen === item.id ? 'nav-button active' : 'nav-button'} key={item.id} onClick={() => setScreen(item.id)} type="button">
+            <button className={screen === item.id ? 'nav-button active' : 'nav-button'} key={item.id} onClick={() => { setScreen(item.id); setSidebarOpen(false); }} type="button">
               <span className="nav-icon">{item.icon}</span>
               {item.label}
             </button>
           ))}
         </nav>
       </aside>
+
+      {/* Bottom nav for mobile */}
+      <nav className="bottom-nav">
+        {screens.map((item) => (
+          <button className={screen === item.id ? 'bottom-nav-btn active' : 'bottom-nav-btn'} key={item.id} onClick={() => setScreen(item.id)} type="button">
+            <span className="bottom-nav-icon">{item.icon}</span>
+            <span className="bottom-nav-label">{item.label}</span>
+          </button>
+        ))}
+      </nav>
 
       <main className="content">
         <header className="topbar">

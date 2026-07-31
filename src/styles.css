@@ -11,6 +11,7 @@
   --danger: #dc2626;
   --success: #15803d;
   --shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+  --bottom-nav-h: 64px;
 }
 
 * { box-sizing: border-box; }
@@ -36,6 +37,7 @@ button {
   font-weight: 700;
   min-height: 40px;
   padding: 0.65rem 0.9rem;
+  touch-action: manipulation;
 }
 
 button:hover { filter: brightness(0.97); }
@@ -110,6 +112,66 @@ p { color: var(--muted); }
   font-weight: 700;
 }
 
+/* ========== MOBILE TOP BAR ========== */
+.mobile-topbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.hamburger-btn {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--text);
+  min-height: 38px;
+  min-width: 38px;
+  font-size: 1.2rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.mobile-topbar-info {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-topbar-info strong {
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.mobile-topbar-info span {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.mobile-topbar-right {
+  text-align: right;
+}
+
+.mobile-month {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ========== SIDEBAR OVERLAY ========== */
+.sidebar-overlay {
+  display: none;
+}
+
+/* ========== APP SHELL ========== */
 .app-shell {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
@@ -204,6 +266,12 @@ p { color: var(--muted); }
   font-size: 0.82rem;
 }
 
+/* ========== BOTTOM NAV ========== */
+.bottom-nav {
+  display: none;
+}
+
+/* ========== CONTENT ========== */
 .content {
   min-width: 0;
   padding: 24px;
@@ -413,8 +481,11 @@ p { color: var(--muted); }
   font-style: normal;
   font-weight: 700;
   line-height: 1.25;
-  padding: 4px 6px;
-  overflow-wrap: anywhere;
+  padding: 3px 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
 .day-item-income {
@@ -430,6 +501,8 @@ p { color: var(--muted); }
 .day-items em {
   background: var(--surface-muted);
   color: var(--muted);
+  white-space: normal;
+  font-style: normal;
 }
 
 .form-grid.two-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -464,9 +537,9 @@ p { color: var(--muted); }
   padding: 12px;
 }
 
-.row-main { min-width: 0; }
+.row-main { min-width: 0; flex: 1; }
 .row-main p { margin: 4px 0 0; overflow-wrap: anywhere; }
-.row-actions { justify-content: flex-end; flex-wrap: wrap; }
+.row-actions { justify-content: flex-end; flex-wrap: wrap; flex-shrink: 0; }
 .row-actions button { min-height: 34px; padding: 0.45rem 0.65rem; }
 
 .category-chip {
@@ -517,34 +590,35 @@ p { color: var(--muted); }
 .compact-row { border-bottom: 1px solid var(--line); padding: 9px 0; }
 .compact-row:last-child { border-bottom: 0; }
 
-.calendar-panel { overflow: auto; }
+.calendar-panel { overflow: hidden; }
 .calendar-weekdays,
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(120px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
 }
 
-.calendar-weekdays { margin-bottom: 6px; }
-.calendar-weekdays span { color: var(--muted); font-weight: 800; text-align: center; font-size: 0.82rem; }
+.calendar-weekdays { margin-bottom: 4px; }
+.calendar-weekdays span { color: var(--muted); font-weight: 800; text-align: center; font-size: 0.78rem; }
 
 .calendar-day {
-  min-height: 110px;
+  min-height: 90px;
   align-items: start;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   color: var(--text);
   text-align: left;
-  padding: 8px;
+  padding: 6px;
   transition: border-color 0.15s;
+  overflow: hidden;
 }
 
 .calendar-day:hover { border-color: var(--accent); filter: none; }
 .calendar-day.outside { background: #f1f5f9; color: var(--muted); }
-.day-items { display: grid; gap: 3px; }
+.day-items { display: grid; gap: 2px; overflow: hidden; }
 
 .category-preview {
   margin-top: 14px;
@@ -557,7 +631,7 @@ p { color: var(--muted); }
   background: var(--surface-muted);
 }
 
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; min-width: 720px; border-collapse: collapse; }
 th,
 td { border-bottom: 1px solid var(--line); padding: 12px 10px; text-align: left; vertical-align: middle; }
@@ -576,31 +650,188 @@ th { color: var(--muted); font-size: 0.86rem; }
 .summary-lines div:last-child { border-bottom: 0; }
 .summary-total strong { color: var(--accent); font-size: 1.3rem; }
 
-@media (max-width: 1120px) {
+/* ========== TABLET (<= 1024px) ========== */
+@media (max-width: 1024px) {
   .app-shell { grid-template-columns: 1fr; }
-  .sidebar { position: static; height: auto; }
-  .nav-list,
-  .profile-switcher { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .metrics-grid,
-  .dashboard-grid,
-  .split-layout,
+  .sidebar { display: none; position: fixed; left: 0; top: 0; bottom: 0; width: 260px; z-index: 200; box-shadow: 4px 0 24px rgba(0,0,0,0.15); display: none; align-content: start; }
+  .sidebar.sidebar-open { display: grid; }
+  .mobile-topbar { display: flex; }
+  .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: var(--bottom-nav-h); background: var(--surface); border-top: 1px solid var(--line); z-index: 100; justify-content: space-around; align-items: center; padding: 0 4px; box-shadow: 0 -2px 10px rgba(0,0,0,0.06); }
+  .content { padding-bottom: calc(var(--bottom-nav-h) + 16px); padding-top: 16px; }
+  .topbar { display: none; }
+  .metrics-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .split-layout { grid-template-columns: 1fr; }
   .calendar-layout { grid-template-columns: 1fr; }
+  .account-hero-card { padding: 18px 20px; }
 }
 
-@media (max-width: 720px) {
-  .content,
-  .sidebar { padding: 12px; }
-  .topbar,
-  .section-head,
-  .list-row,
-  .row-actions,
-  .month-picker { align-items: stretch; flex-direction: column; }
+/* ========== Bottom nav buttons ========== */
+.bottom-nav-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  min-height: auto;
+  min-width: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav-btn.active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.bottom-nav-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.bottom-nav-label {
+  line-height: 1;
+}
+
+/* ========== SIDEBAR OVERLAY ========== */
+.sidebar-overlay {
+  display: none;
+}
+
+/* ========== MOBILE (<= 600px) ========== */
+@media (max-width: 600px) {
+  .content { padding: 12px 12px calc(var(--bottom-nav-h) + 12px); }
+
+  .panel { padding: 14px; }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .metric-card {
+    padding: 14px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .metric-card span { font-size: 0.82rem; }
+  .metric-card strong { font-size: 1.15rem; }
+
+  .account-hero-card { padding: 16px; }
+  .account-hero-balance strong,
+  .account-hero-balance span { font-size: 1.5rem; }
+  .account-hero-edit { flex-direction: column; align-items: stretch; width: 100%; }
+  .account-hero-input { width: 100%; }
+  .account-hero-top { flex-direction: column; align-items: stretch; }
+  .account-hero-sub { flex-direction: column; gap: 8px; }
+
+  .month-picker { flex-direction: column; align-items: stretch; }
+  .month-picker label { min-width: 0; }
+
+  .section-head { flex-wrap: wrap; }
+
+  /* Calendar mobile */
+  .calendar-layout { gap: 12px; }
+  .calendar-weekdays span { font-size: 0.7rem; font-weight: 700; }
+  .calendar-day {
+    min-height: 72px;
+    padding: 4px;
+    border-radius: 6px;
+  }
+  .calendar-day strong { font-size: 0.8rem; }
+  .day-items span,
+  .day-items em {
+    font-size: 0.65rem;
+    padding: 2px 3px;
+    line-height: 1.2;
+  }
+
+  /* Forms */
   .form-grid.two-cols,
   .form-grid.inline-form { grid-template-columns: 1fr; }
-  .calendar-weekdays,
-  .calendar-grid { grid-template-columns: repeat(7, minmax(88px, 1fr)); }
-  .calendar-day { min-height: 100px; padding: 6px; }
+
+  /* Lists */
+  .list-row {
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .row-actions {
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .row-actions strong { font-size: 1rem; }
+
+  /* Table → card layout */
+  .table-wrap table { min-width: 0; }
+  .table-wrap thead { display: none; }
+  .table-wrap tbody { display: grid; gap: 8px; }
+  .table-wrap tr {
+    display: grid;
+    gap: 6px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-muted);
+    padding: 12px;
+  }
+  .table-wrap td {
+    border-bottom: none;
+    padding: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .table-wrap td:first-child { font-weight: 700; }
+  .table-actions { justify-content: flex-end; }
+
+  /* Summary */
+  .summary-lines div { padding: 8px 0; gap: 8px; }
+  .summary-total strong { font-size: 1.1rem; }
+
+  /* Sidebar overlay */
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 150;
+  }
+
+  /* Auth */
+  .auth-card { padding: 20px; }
+
+  /* Init panel */
+  .account-init-content { padding: 14px; }
+  .account-init-icon { font-size: 2rem; }
+
+  /* Budget inline form */
+  .month-budget-form { flex-direction: column; align-items: stretch; }
+  .budget-input { width: 100%; }
+}
+
+/* ========== VERY SMALL (<= 360px) ========== */
+@media (max-width: 360px) {
+  .mobile-topbar { padding: 8px 10px; gap: 8px; }
+  .hamburger-btn { min-height: 34px; min-width: 34px; font-size: 1rem; }
+  .mobile-topbar-info strong { font-size: 0.85rem; }
+  .mobile-topbar-info span { font-size: 0.72rem; }
+  .bottom-nav-icon { font-size: 1.1rem; }
+  .bottom-nav-label { font-size: 0.65rem; }
+  .content { padding: 10px 10px calc(var(--bottom-nav-h) + 10px); }
   .account-hero-balance strong,
-  .account-hero-balance span { font-size: 1.6rem; }
-  .account-hero-top { flex-direction: column; align-items: flex-start; }
+  .account-hero-balance span { font-size: 1.3rem; }
+  .calendar-day { min-height: 60px; padding: 3px; }
+  .day-items span,
+  .day-items em { font-size: 0.6rem; padding: 2px; }
 }
