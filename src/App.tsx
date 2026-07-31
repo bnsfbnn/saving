@@ -158,16 +158,18 @@ function App() {
   )
 
   const activeAccountSettings = useMemo(
-    () => accountSettings.find((s) => s.owner_id === activeOwner) ?? { owner_id: activeOwner, opening_balance: 0, updated_at: new Date().toISOString() },
+    () => accountSettings.find((s) => s.owner_id === activeOwner),
     [accountSettings, activeOwner],
   )
 
+  // Tài khoản chính = Số dư ban đầu + Thu - Chi (tất cả giao dịch từ khi bắt đầu)
   const mainBalance = useMemo(
-    () => calculateMainBalance(activeAccountSettings.opening_balance, transactions, activeOwner),
-    [activeAccountSettings.opening_balance, transactions, activeOwner],
+    () => calculateMainBalance(activeAccountSettings?.opening_balance ?? 0, transactions, activeOwner),
+    [activeAccountSettings, transactions, activeOwner],
   )
 
-  const hasAccountSettings = activeAccountSettings.opening_balance > 0
+  // Chỉ hiện input nếu CHƯA có tài khoản (chưa lưu opening_balance lần nào)
+  const hasAccountSettings = activeAccountSettings != null
 
   const monthlySummary = useMemo(
     () => calculateMonthlySummary(transactions, fixedExpenses, activeMonthlyBudget, activeOwner, selectedMonth),
@@ -201,8 +203,8 @@ function App() {
   }, [isAuthenticated])
 
   useEffect(() => {
-    setOpeningBalanceInput(String(activeAccountSettings.opening_balance))
-  }, [activeAccountSettings.opening_balance])
+    setOpeningBalanceInput(String(activeAccountSettings?.opening_balance ?? 0))
+  }, [activeAccountSettings?.opening_balance])
 
   useEffect(() => {
     setMonthlyAmountInput(String(activeMonthlyBudget?.starting_amount ?? 0))
@@ -714,16 +716,16 @@ function App() {
 
         {screen === 'dashboard' ? (
           <>
-            {/* Account initialization prompt */}
+            {/* Account initialization prompt - chỉ hiện khi CHƯA có tài khoản */}
             {!hasAccountSettings && !loading ? (
               <section className="panel account-init-panel">
                 <div className="account-init-content">
                   <span className="account-init-icon">🏦</span>
                   <h2>Bắt đầu tiết kiệm</h2>
-                  <p>Nhập số tiền hiện có để bắt đầu theo dõi tài chính.</p>
+                  <p>Nhập số dư ban đầu (số tiền hiện có) để bắt đầu theo dõi tài chính.</p>
                   <div className="form-grid inline-form">
                     <label>
-                      Số tiền hiện có (VND)
+                      Số dư ban đầu (VND)
                       <input inputMode="decimal" value={openingBalanceInput} onChange={(event) => setOpeningBalanceInput(event.target.value)} placeholder="Ví dụ: 5000000" />
                     </label>
                     <button onClick={() => void saveAccountSettings()} type="button">Bắt đầu</button>
@@ -732,23 +734,24 @@ function App() {
               </section>
             ) : null}
 
-            {/* Big Account Balance Card */}
-            <section className="account-hero-card">
-              <div className="account-hero-top">
-                <span className="account-hero-label">💰 {activeProfile.label} — Tài khoản chính</span>
-                <div className="account-hero-edit">
-                  <input className="account-hero-input" inputMode="decimal" value={openingBalanceInput} onChange={(event) => setOpeningBalanceInput(event.target.value)} title="Sửa số dư ban đầu" />
-                  <button className="ghost-button small" onClick={() => void saveAccountSettings()} type="button">Cập nhật</button>
+            {/* Account Hero Card - hiện khi ĐÃ CÓ tài khoản */}
+            {hasAccountSettings ? (
+              <section className="account-hero-card">
+                <div className="account-hero-top">
+                  <span className="account-hero-label">💰 {activeProfile.label} — Tài khoản chính</span>
+                  <span className="account-hero-hint">Số dư ban đầu + Thu − Chi</span>
                 </div>
-              </div>
-              <div className="account-hero-balance">
-                <span className={mainBalance >= 0 ? 'money-positive' : 'money-negative'}>{currency(mainBalance)}</span>
-              </div>
-              <div className="account-hero-sub">
-                <span>Số dư ban đầu: <strong>{currency(activeAccountSettings.opening_balance)}</strong></span>
-                <span>Giao dịch: <strong>{transactions.filter((t) => t.owner_id === activeOwner).length}</strong></span>
-              </div>
-            </section>
+                <div className="account-hero-balance">
+                  <span className={mainBalance >= 0 ? 'money-positive' : 'money-negative'}>{currency(mainBalance)}</span>
+                </div>
+                <div className="account-hero-sub">
+                  <span>Ban đầu: <strong>{currency(activeAccountSettings!.opening_balance)}</strong></span>
+                  <span>Thu: <strong className="money-positive">+{currency(monthlySummary.income)}</strong></span>
+                  <span>Chi: <strong className="money-negative">−{currency(monthlySummary.totalExpense)}</strong></span>
+                  <span>Giao dịch: <strong>{transactions.filter((t) => t.owner_id === activeOwner).length}</strong></span>
+                </div>
+              </section>
+            ) : null}
 
             {/* Metrics: Thu / Chi / Còn lại theo tháng */}
             <section className="metrics-grid">

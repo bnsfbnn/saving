@@ -396,6 +396,15 @@ p { color: var(--muted); }
   color: var(--muted);
 }
 
+.account-hero-hint {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface-muted);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
 .account-hero-edit {
   display: flex;
   align-items: center;
