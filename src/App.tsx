@@ -32,7 +32,6 @@ import {
   todayISO,
   transactionsForProfileAndMonth,
   sum,
-  formatISODate,
 } from './data/finance'
 import { loadAppData } from './data/repository'
 
@@ -169,46 +168,26 @@ function App() {
   // Chỉ hiện input nếu CHƯA có tài khoản (chưa lưu opening_balance lần nào)
   const hasAccountSettings = activeAccountSettings != null
 
-  // Tài khoản chính = Số tiền hiện có thực sự
-  // = Opening balance + Tổng thu − Tổng chi − Tổng chi cố định
-  // Opening balance là số tiền tiết kiệm ban đầu (tháng đầu tiên)
-  // Chi cố định được trừ từ tháng đầu tiên có budget/transaction đến tháng hiện tại
+  // Tài khoản chính = Số khởi đầu + Tổng (Thu − Chi − Chi cố định) tất cả các tháng
   const mainBalance = useMemo(() => {
     const opening = activeAccountSettings?.opening_balance ?? 0
     const ownerTransactions = transactions.filter((t) => t.profile_id === activeOwner)
     const totalIncome = sum(ownerTransactions.filter((t) => t.type === 'income').map((t) => t.amount))
-    const totalExpense = sum(ownerTransactions.filter((t) => t.type === 'expense').map((t) => t.amount))
+    const totalVariableExpense = sum(ownerTransactions.filter((t) => t.type === 'expense').map((t) => t.amount))
 
-    // Tìm tháng đầu tiên (từ budget hoặc transaction)
-    const ownerBudgets = monthlyBudgets.filter((b) => b.profile_id === activeOwner)
-    const firstBudgetMonth = ownerBudgets.length > 0
-      ? ownerBudgets.reduce((min, b) => b.month_start.slice(0, 7) < min ? b.month_start.slice(0, 7) : min, '9999-12')
-      : null
-    const firstTxMonth = ownerTransactions.length > 0
-      ? ownerTransactions.reduce((min, t) => t.occurred_on.slice(0, 7) < min ? t.occurred_on.slice(0, 7) : min, '9999-12')
-      : null
+    // Tìm tất cả các tháng có giao dịch
+    const txMonths = [...new Set(ownerTransactions.map((t) => t.occurred_on.slice(0, 7)))]
     const currentMonth = selectedMonth.slice(0, 7)
+    const allMonths = [...new Set([...txMonths, currentMonth])].sort()
 
-    // Tháng đầu tiên = nhỏ nhất trong budget, transaction, và tháng hiện tại
-    const candidates = [firstBudgetMonth, firstTxMonth, currentMonth].filter(Boolean) as string[]
-    const firstMonth = candidates.reduce((min, c) => c < min ? c : min, '9999-12')
-
-    // Scan từ tháng đầu tiên đến tháng hiện tại
-    const allMonths: string[] = []
-    let [y, m] = firstMonth.split('-').map(Number)
-    while (`${y}-${String(m).padStart(2, '0')}` <= currentMonth) {
-      allMonths.push(`${y}-${String(m).padStart(2, '0')}`)
-      m++
-      if (m > 12) { m = 1; y++ }
-    }
-
+    // Tổng chi cố định tất cả các tháng
     const totalFixed = allMonths.reduce((acc, month) => {
       const occurrences = fixedOccurrencesForMonth(fixedExpenses, activeOwner, `${month}-01`)
       return acc + sum(occurrences.map((o) => o.amount))
     }, 0)
 
-    return opening + totalIncome - totalExpense - totalFixed
-  }, [activeAccountSettings, transactions, activeOwner, fixedExpenses, selectedMonth, monthlyBudgets])
+    return opening + totalIncome - totalVariableExpense - totalFixed
+  }, [activeAccountSettings, transactions, activeOwner, fixedExpenses, selectedMonth])
 
   const monthlySummary = useMemo(
     () => calculateMonthlySummary(transactions, fixedExpenses, activeMonthlyBudget, activeOwner, selectedMonth),
@@ -244,49 +223,6 @@ function App() {
   useEffect(() => {
     setOpeningBalanceInput(String(activeAccountSettings?.opening_balance ?? 0))
   }, [activeAccountSettings?.opening_balance])
-
-  // Tự động lưu còn lại tháng trước sang tháng hiện tại
-  useEffect(() => {
-    if (loading || !activeAccountSettings || !supabase) return
-    if (activeMonthlyBudget) return // Đã có budget cho tháng này
-
-    // Tính remaining của tháng trước = đầu tháng trước + thu - chi - chi cố định
-    const [year, month] = selectedMonth.split('-').map(Number)
-    const prevMonthDate = new Date(year, month - 2, 1)
-    const prevMonthStart = formatISODate(prevMonthDate)
-
-    const prevBudget = monthlyBudgets.find((b) => b.profile_id === activeOwner && b.month_start === prevMonthStart)
-    const prevStartingAmount = prevBudget?.starting_amount ?? (activeAccountSettings.opening_balance ?? 0)
-
-    const prevMonthTxs = transactionsForProfileAndMonth(transactions, activeOwner, prevMonthStart)
-    const prevMonthFixed = fixedOccurrencesForMonth(fixedExpenses, activeOwner, prevMonthStart)
-    const prevIncome = sum(prevMonthTxs.filter((t) => t.type === 'income').map((t) => t.amount))
-    const prevExpense = sum(prevMonthTxs.filter((t) => t.type === 'expense').map((t) => t.amount))
-    const prevFixed = sum(prevMonthFixed.map((o) => o.amount))
-    const prevRemaining = prevStartingAmount + prevIncome - prevExpense - prevFixed
-
-    void (async () => {
-      const { data, error } = await supabase
-        .from('monthly_budgets')
-        .upsert({
-          profile_id: activeOwner,
-          month_start: selectedMonth,
-          starting_amount: prevRemaining,
-          note: 'Tự động từ tháng trước',
-        }, { onConflict: 'profile_id,month_start' })
-        .select('*')
-        .single()
-
-      if (!error && data) {
-        const saved = data as MonthlyBudget
-        setMonthlyBudgets((current) => {
-          const exists = current.some((b) => b.id === saved.id)
-          if (exists) return current.map((b) => (b.id === saved.id ? saved : b))
-          return [saved, ...current]
-        })
-      }
-    })()
-  }, [selectedMonth, activeOwner, activeMonthlyBudget, loading, activeAccountSettings, transactions, fixedExpenses, monthlyBudgets])
 
   useEffect(() => {
     if (transactionCategoryOptions.length === 0) return
@@ -862,13 +798,13 @@ function App() {
               <section className="account-hero-card">
                 <div className="account-hero-top">
                   <span className="account-hero-label">💰 {activeProfile.name} — Tài khoản chính</span>
-                  <span className="account-hero-hint">Số tiền hiện có</span>
+                  <span className="account-hero-hint">Khởi đầu + Tổng còn lại</span>
                 </div>
                 <div className="account-hero-balance">
                   <span className={mainBalance >= 0 ? 'money-positive' : 'money-negative'}>{currency(mainBalance)}</span>
                 </div>
                 <div className="account-hero-sub">
-                  <span>Ban đầu: <strong>{currency(activeAccountSettings!.opening_balance)}</strong></span>
+                  <span>Khởi đầu: <strong>{currency(activeAccountSettings!.opening_balance)}</strong></span>
                   <span>Thu: <strong className="money-positive">+{currency(sum(transactions.filter((t) => t.profile_id === activeOwner && t.type === 'income').map((t) => t.amount)))}</strong></span>
                   <span>Chi: <strong className="money-negative">−{currency(sum(transactions.filter((t) => t.profile_id === activeOwner && t.type === 'expense').map((t) => t.amount)))}</strong></span>
                 </div>
@@ -935,18 +871,16 @@ function App() {
               </div>
             </section>
 
-            {/* Monthly Summary - tự động lưu carry-forward */}
+            {/* Monthly Summary - chỉ thu chi tháng hiện tại */}
             <section className="panel">
               <div className="section-head">
                 <h2>📋 Tổng hợp {monthLabel(selectedMonth)}</h2>
-                <span className="carry-forward-hint">Tự động từ tháng trước</span>
               </div>
               <div className="summary-lines">
-                <div><span>Đầu tháng (còn lại tháng trước)</span><strong>{currency(monthlySummary.startingAmount)}</strong></div>
                 <div><span>Thu</span><strong className="money-positive">+{currency(monthlySummary.income)}</strong></div>
                 <div><span>Chi thường</span><strong className="money-negative">-{currency(monthlySummary.variableExpense)}</strong></div>
                 <div><span>Chi cố định</span><strong className="money-negative">-{currency(monthlySummary.fixedExpense)}</strong></div>
-                <div className="summary-total"><span>Còn lại</span><strong>{currency(monthlySummary.remaining)}</strong></div>
+                <div className="summary-total"><span>Còn lại tháng</span><strong>{currency(monthlySummary.income - monthlySummary.variableExpense - monthlySummary.fixedExpense)}</strong></div>
               </div>
             </section>
 
