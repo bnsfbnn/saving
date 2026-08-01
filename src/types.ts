@@ -1,16 +1,15 @@
-export type OwnerId = 'wife' | 'husband'
 export type CategoryKind = 'income' | 'expense' | 'fixed_expense'
 export type TransactionType = 'income' | 'expense'
 export type FixedFrequency = 'weekly' | 'monthly'
 export type Screen = 'dashboard' | 'calendar' | 'fixed' | 'categories'
 
 export type Profile = {
-  id: OwnerId
-  label: string
-  shortLabel: string
-  themeClass: string
+  id: string
+  name: string
+  color: string
   accent: string
-  softAccent: string
+  soft_accent: string
+  created_at: string
 }
 
 export type Category = {
@@ -25,7 +24,7 @@ export type Category = {
 
 export type Transaction = {
   id: string
-  owner_id: OwnerId
+  profile_id: string
   type: TransactionType
   category_id: string
   amount: number
@@ -36,7 +35,7 @@ export type Transaction = {
 
 export type FixedExpense = {
   id: string
-  owner_id: OwnerId
+  profile_id: string
   category_id: string
   name: string
   amount: number
@@ -51,7 +50,7 @@ export type FixedExpense = {
 
 export type MonthlyBudget = {
   id: string
-  owner_id: OwnerId
+  profile_id: string
   month_start: string
   starting_amount: number
   note: string
@@ -59,7 +58,7 @@ export type MonthlyBudget = {
 }
 
 export type AccountSettings = {
-  owner_id: OwnerId
+  profile_id: string
   opening_balance: number
   updated_at: string
 }

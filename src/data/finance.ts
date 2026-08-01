@@ -1,4 +1,4 @@
-import type { Category, FixedExpense, MonthlyBudget, OwnerId, Transaction } from '../types'
+import type { Category, FixedExpense, MonthlyBudget, Transaction } from '../types'
 
 export type CalendarDay = {
   iso: string
@@ -11,7 +11,7 @@ export type FixedOccurrence = {
   date: string
   amount: number
   category_id: string
-  owner_id: OwnerId
+  profile_id: string
 }
 
 export type MonthlySummary = {
@@ -91,17 +91,17 @@ export function buildCalendarDays(monthStart: string): CalendarDay[] {
   })
 }
 
-export function transactionsForOwnerAndMonth(transactions: Transaction[], ownerId: OwnerId, monthStart: string) {
-  return transactions.filter((item) => item.owner_id === ownerId && isInMonth(item.occurred_on, monthStart))
+export function transactionsForProfileAndMonth(transactions: Transaction[], profileId: string, monthStart: string) {
+  return transactions.filter((item) => item.profile_id === profileId && isInMonth(item.occurred_on, monthStart))
 }
 
-export function fixedOccurrencesForMonth(fixedExpenses: FixedExpense[], ownerId: OwnerId, monthStart: string) {
+export function fixedOccurrencesForMonth(fixedExpenses: FixedExpense[], profileId: string, monthStart: string) {
   const monthDate = parseISODate(monthStart)
   const lastDay = daysInMonth(monthStart)
   const occurrences: FixedOccurrence[] = []
 
   fixedExpenses
-    .filter((item) => item.owner_id === ownerId && item.is_active)
+    .filter((item) => item.profile_id === profileId && item.is_active)
     .forEach((fixedExpense) => {
       const startDate = parseISODate(fixedExpense.start_date)
 
@@ -114,7 +114,7 @@ export function fixedOccurrencesForMonth(fixedExpenses: FixedExpense[], ownerId:
             date: formatISODate(date),
             amount: fixedExpense.amount,
             category_id: fixedExpense.category_id,
-            owner_id: fixedExpense.owner_id,
+            profile_id: fixedExpense.profile_id,
           })
         }
         return
@@ -129,7 +129,7 @@ export function fixedOccurrencesForMonth(fixedExpenses: FixedExpense[], ownerId:
             date: formatISODate(date),
             amount: fixedExpense.amount,
             category_id: fixedExpense.category_id,
-            owner_id: fixedExpense.owner_id,
+            profile_id: fixedExpense.profile_id,
           })
         }
       }
@@ -138,22 +138,15 @@ export function fixedOccurrencesForMonth(fixedExpenses: FixedExpense[], ownerId:
   return occurrences.sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export function calculateMainBalance(openingBalance: number, transactions: Transaction[], ownerId?: OwnerId) {
-  const filtered = ownerId ? transactions.filter((t) => t.owner_id === ownerId) : transactions
-  return filtered.reduce((balance, transaction) => {
-    return transaction.type === 'income' ? balance + transaction.amount : balance - transaction.amount
-  }, openingBalance)
-}
-
 export function calculateMonthlySummary(
   transactions: Transaction[],
   fixedExpenses: FixedExpense[],
   budget: MonthlyBudget | undefined,
-  ownerId: OwnerId,
+  profileId: string,
   monthStart: string,
 ): MonthlySummary {
-  const monthTransactions = transactionsForOwnerAndMonth(transactions, ownerId, monthStart)
-  const fixedOccurrences = fixedOccurrencesForMonth(fixedExpenses, ownerId, monthStart)
+  const monthTransactions = transactionsForProfileAndMonth(transactions, profileId, monthStart)
+  const fixedOccurrences = fixedOccurrencesForMonth(fixedExpenses, profileId, monthStart)
   const income = sum(monthTransactions.filter((item) => item.type === 'income').map((item) => item.amount))
   const variableExpense = sum(monthTransactions.filter((item) => item.type === 'expense').map((item) => item.amount))
   const fixedExpense = sum(fixedOccurrences.map((item) => item.amount))
@@ -174,12 +167,12 @@ export function buildCategoryBreakdown(
   categories: Category[],
   transactions: Transaction[],
   fixedExpenses: FixedExpense[],
-  ownerId: OwnerId,
+  profileId: string,
   monthStart: string,
 ): CategoryBreakdown[] {
   const expenseByCategory = new Map<string, number>()
-  const monthTransactions = transactionsForOwnerAndMonth(transactions, ownerId, monthStart).filter((item) => item.type === 'expense')
-  const fixedOccurrences = fixedOccurrencesForMonth(fixedExpenses, ownerId, monthStart)
+  const monthTransactions = transactionsForProfileAndMonth(transactions, profileId, monthStart).filter((item) => item.type === 'expense')
+  const fixedOccurrences = fixedOccurrencesForMonth(fixedExpenses, profileId, monthStart)
 
   monthTransactions.forEach((transaction) => {
     expenseByCategory.set(transaction.category_id, (expenseByCategory.get(transaction.category_id) ?? 0) + transaction.amount)

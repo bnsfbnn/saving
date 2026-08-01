@@ -669,6 +669,94 @@ th { color: var(--muted); font-size: 0.86rem; }
   white-space: nowrap;
 }
 
+/* ========== PROFILE DROPDOWN ========== */
+.profile-dropdown-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.profile-dropdown {
+  flex: 1;
+  min-height: 38px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.profile-row:hover { background: var(--surface-muted); }
+.profile-row.active { background: var(--accent-soft); }
+
+.profile-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.profile-dot.large { width: 24px; height: 24px; }
+
+.profile-name {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ghost-button.tiny,
+.danger-button.tiny {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 4px;
+  font-size: 0.8rem;
+  border: none;
+  background: transparent;
+}
+
+.ghost-button.tiny:hover { background: var(--surface-muted); }
+.danger-button.tiny:hover { background: #fee2e2; }
+
+/* ========== MODAL ========== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  z-index: 300;
+  padding: 24px;
+}
+
+.modal-card {
+  width: min(100%, 420px);
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.profile-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
 /* ========== TABLET (<= 1024px) ========== */
 @media (max-width: 1024px) {
   .app-shell { grid-template-columns: 1fr; }

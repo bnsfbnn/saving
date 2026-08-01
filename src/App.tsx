@@ -7,7 +7,7 @@ import type {
   FixedExpense,
   FixedFrequency,
   MonthlyBudget,
-  OwnerId,
+  Profile,
   Screen,
   Transaction,
   TransactionType,
@@ -18,7 +18,6 @@ import {
   defaultCategories,
   fixedFrequencyLabels,
   iconOptions,
-  profiles,
   weekDayLabels,
 } from './data/defaults'
 import {
@@ -27,15 +26,12 @@ import {
   calculateMonthlySummary,
   currency,
   fixedOccurrencesForMonth,
-  isInMonth,
   monthInputValue,
   monthLabel,
   monthStartISO,
   todayISO,
-  transactionsForOwnerAndMonth,
+  transactionsForProfileAndMonth,
   sum,
-  daysInMonth,
-  parseISODate,
   formatISODate,
 } from './data/finance'
 import { loadAppData } from './data/repository'
@@ -75,8 +71,8 @@ const screens: Array<{ id: Screen; label: string; icon: string }> = [
 ]
 
 const fallbackAccountSettings: AccountSettings[] = [
-  { owner_id: 'wife', opening_balance: 0, updated_at: new Date().toISOString() },
-  { owner_id: 'husband', opening_balance: 0, updated_at: new Date().toISOString() },
+  { profile_id: 'wife', opening_balance: 0, updated_at: new Date().toISOString() },
+  { profile_id: 'husband', opening_balance: 0, updated_at: new Date().toISOString() },
 ]
 
 const authCode = '88269'
@@ -127,7 +123,8 @@ function App() {
   const [authInput, setAuthInput] = useState('')
   const [authError, setAuthError] = useState('')
   const [screen, setScreen] = useState<Screen>('dashboard')
-  const [activeOwner, setActiveOwner] = useState<OwnerId>('wife')
+  const [activeOwner, setActiveOwner] = useState('wife')
+  const [profiles, setProfiles] = useState<Profile[]>([])
   const [selectedMonth, setSelectedMonth] = useState(monthStartISO())
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -145,6 +142,10 @@ function App() {
   const [editingCategoryId, setEditingCategoryId] = useState('')
   const [fixedDraft, setFixedDraft] = useState<FixedExpenseDraft>(() => createFixedExpenseDraft())
   const [editingFixedExpenseId, setEditingFixedExpenseId] = useState('')
+  const [showProfileForm, setShowProfileForm] = useState(false)
+  const [profileFormName, setProfileFormName] = useState('')
+  const [profileFormColor, setProfileFormColor] = useState<string>(colorOptions[0].hex)
+  const [editingProfileId, setEditingProfileId] = useState('')
 
   const activeProfile = profiles.find((profile) => profile.id === activeOwner) ?? profiles[0]
 
@@ -155,12 +156,12 @@ function App() {
   const transactionCategoryOptions = transactionDraft.type === 'income' ? incomeCategories : expenseCategories
 
   const activeMonthlyBudget = useMemo(
-    () => monthlyBudgets.find((budget) => budget.owner_id === activeOwner && budget.month_start === selectedMonth),
+    () => monthlyBudgets.find((budget) => budget.profile_id === activeOwner && budget.month_start === selectedMonth),
     [activeOwner, monthlyBudgets, selectedMonth],
   )
 
   const activeAccountSettings = useMemo(
-    () => accountSettings.find((s) => s.owner_id === activeOwner),
+    () => accountSettings.find((s) => s.profile_id === activeOwner),
     [accountSettings, activeOwner],
   )
 
@@ -173,12 +174,12 @@ function App() {
   // Chi cố định được trừ từ tháng đầu tiên có budget/transaction đến tháng hiện tại
   const mainBalance = useMemo(() => {
     const opening = activeAccountSettings?.opening_balance ?? 0
-    const ownerTransactions = transactions.filter((t) => t.owner_id === activeOwner)
+    const ownerTransactions = transactions.filter((t) => t.profile_id === activeOwner)
     const totalIncome = sum(ownerTransactions.filter((t) => t.type === 'income').map((t) => t.amount))
     const totalExpense = sum(ownerTransactions.filter((t) => t.type === 'expense').map((t) => t.amount))
 
     // Tìm tháng đầu tiên (từ budget hoặc transaction)
-    const ownerBudgets = monthlyBudgets.filter((b) => b.owner_id === activeOwner)
+    const ownerBudgets = monthlyBudgets.filter((b) => b.profile_id === activeOwner)
     const firstBudgetMonth = ownerBudgets.length > 0
       ? ownerBudgets.reduce((min, b) => b.month_start.slice(0, 7) < min ? b.month_start.slice(0, 7) : min, '9999-12')
       : null
@@ -214,7 +215,7 @@ function App() {
   )
 
   const monthTransactions = useMemo(
-    () => transactionsForOwnerAndMonth(transactions, activeOwner, selectedMonth),
+    () => transactionsForProfileAndMonth(transactions, activeOwner, selectedMonth),
     [activeOwner, selectedMonth, transactions],
   )
 
@@ -230,7 +231,7 @@ function App() {
 
   const calendarDays = useMemo(() => buildCalendarDays(selectedMonth), [selectedMonth])
   const recentOwnerTransactions = useMemo(
-    () => transactions.filter((transaction) => transaction.owner_id === activeOwner).slice(0, 8),
+    () => transactions.filter((transaction) => transaction.profile_id === activeOwner).slice(0, 8),
     [activeOwner, transactions],
   )
 
@@ -253,10 +254,10 @@ function App() {
     const prevMonthDate = new Date(year, month - 2, 1)
     const prevMonthStart = formatISODate(prevMonthDate)
 
-    const prevBudget = monthlyBudgets.find((b) => b.owner_id === activeOwner && b.month_start === prevMonthStart)
+    const prevBudget = monthlyBudgets.find((b) => b.profile_id === activeOwner && b.month_start === prevMonthStart)
     const prevStartingAmount = prevBudget?.starting_amount ?? (activeAccountSettings.opening_balance ?? 0)
 
-    const prevMonthTxs = transactionsForOwnerAndMonth(transactions, activeOwner, prevMonthStart)
+    const prevMonthTxs = transactionsForProfileAndMonth(transactions, activeOwner, prevMonthStart)
     const prevMonthFixed = fixedOccurrencesForMonth(fixedExpenses, activeOwner, prevMonthStart)
     const prevIncome = sum(prevMonthTxs.filter((t) => t.type === 'income').map((t) => t.amount))
     const prevExpense = sum(prevMonthTxs.filter((t) => t.type === 'expense').map((t) => t.amount))
@@ -267,11 +268,11 @@ function App() {
       const { data, error } = await supabase
         .from('monthly_budgets')
         .upsert({
-          owner_id: activeOwner,
+          profile_id: activeOwner,
           month_start: selectedMonth,
           starting_amount: prevRemaining,
           note: 'Tự động từ tháng trước',
-        }, { onConflict: 'owner_id,month_start' })
+        }, { onConflict: 'profile_id,month_start' })
         .select('*')
         .single()
 
@@ -304,6 +305,7 @@ function App() {
   async function refreshData() {
     setLoading(true)
     const result = await loadAppData()
+    setProfiles(result.data.profiles)
     setAccountSettings(result.data.accountSettings)
     setCategories(result.data.categories)
     setTransactions(result.data.transactions)
@@ -361,7 +363,7 @@ function App() {
       note: transaction.note,
     })
     setEditingTransactionId(transaction.id)
-    setActiveOwner(transaction.owner_id)
+    setActiveOwner(transaction.profile_id)
     setScreen('calendar')
   }
 
@@ -388,7 +390,7 @@ function App() {
       note: fixedExpense.note,
     })
     setEditingFixedExpenseId(fixedExpense.id)
-    setActiveOwner(fixedExpense.owner_id)
+    setActiveOwner(fixedExpense.profile_id)
   }
 
   async function saveAccountSettings() {
@@ -398,15 +400,15 @@ function App() {
 
     const { data, error } = await supabase
       .from('account_settings')
-      .upsert({ owner_id: activeOwner, opening_balance: openingBalance }, { onConflict: 'owner_id' })
+      .upsert({ profile_id: activeOwner, opening_balance: openingBalance }, { onConflict: 'profile_id' })
       .select('*')
       .single()
 
     if (error) return setMessage(error.message)
     const saved = data as AccountSettings
     setAccountSettings((current) => {
-      const exists = current.some((s) => s.owner_id === activeOwner)
-      if (exists) return current.map((s) => (s.owner_id === activeOwner ? saved : s))
+      const exists = current.some((s) => s.profile_id === activeOwner)
+      if (exists) return current.map((s) => (s.profile_id === activeOwner ? saved : s))
       return [...current, saved]
     })
     setMessage('Đã cập nhật tài khoản chính.')
@@ -425,7 +427,7 @@ function App() {
     if (!supabase) return setMessage('Chưa cấu hình Supabase nên chưa thể lưu.')
 
     const payload = {
-      owner_id: activeOwner,
+      profile_id: activeOwner,
       type: transactionType,
       category_id: categoryId,
       amount,
@@ -529,7 +531,7 @@ function App() {
     if (!supabase) return setMessage('Chưa cấu hình Supabase nên chưa thể lưu.')
 
     const payload = {
-      owner_id: activeOwner,
+      profile_id: activeOwner,
       category_id: fixedDraft.category_id,
       name: fixedDraft.name.trim(),
       amount,
@@ -569,6 +571,65 @@ function App() {
     setFixedExpenses((current) => current.filter((item) => item.id !== id))
     if (editingFixedExpenseId === id) resetFixedExpenseForm()
     setMessage('Đã xóa khoản chi cố định.')
+  }
+
+  async function saveProfile() {
+    const name = profileFormName.trim()
+    if (!name) return setMessage('Tên profile không được để trống.')
+    if (!supabase) return setMessage('Chưa cấu hình Supabase nên chưa thể lưu.')
+
+    const profileId = editingProfileId || name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now()
+
+    if (editingProfileId) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ name, color: profileFormColor, accent: profileFormColor })
+        .eq('id', editingProfileId)
+        .select('*')
+        .single()
+
+      if (error) return setMessage(error.message)
+      setProfiles((current) => current.map((p) => (p.id === editingProfileId ? (data as Profile) : p)))
+      setShowProfileForm(false)
+      setProfileFormName('')
+      setProfileFormColor(colorOptions[0].hex)
+      setEditingProfileId('')
+      return setMessage('Đã cập nhật profile.')
+    }
+
+    const softAccent = profileFormColor + '20'
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert({ id: profileId, name, color: profileFormColor, accent: profileFormColor, soft_accent: softAccent })
+      .select('*')
+      .single()
+
+    if (error) return setMessage(error.message)
+    const saved = data as Profile
+    setProfiles((current) => [...current, saved])
+
+    // Tạo account_settings cho profile mới
+    await supabase.from('account_settings').upsert({ profile_id: profileId, opening_balance: 0 }, { onConflict: 'profile_id' })
+
+    setActiveOwner(profileId)
+    setShowProfileForm(false)
+    setProfileFormName('')
+    setProfileFormColor(colorOptions[0].hex)
+    setMessage(`Đã tạo profile "${name}".`)
+  }
+
+  async function removeProfile(id: string) {
+    if (!supabase) return setMessage('Chưa cấu hình Supabase nên chưa thể xóa.')
+    if (profiles.length <= 1) return setMessage('Phải còn ít nhất 1 profile.')
+
+    const { error } = await supabase.from('profiles').delete().eq('id', id)
+    if (error) return setMessage(error.message)
+    setProfiles((current) => current.filter((p) => p.id !== id))
+    if (activeOwner === id) {
+      const remaining = profiles.filter((p) => p.id !== id)
+      if (remaining.length > 0) setActiveOwner(remaining[0].id)
+    }
+    setMessage('Đã xóa profile.')
   }
 
   function renderMonthPicker() {
@@ -696,14 +757,14 @@ function App() {
   }
 
   return (
-    <div className={`app-shell ${activeProfile.themeClass}`}>
+    <div className="app-shell" style={{ '--accent': activeProfile.accent, '--accent-soft': activeProfile.soft_accent } as React.CSSProperties}>
       {/* Mobile top bar */}
       <header className="mobile-topbar">
         <button className="hamburger-btn" onClick={() => setSidebarOpen(!sidebarOpen)} type="button">
           {sidebarOpen ? '✕' : '☰'}
         </button>
         <div className="mobile-topbar-info">
-          <strong>{activeProfile.label}</strong>
+          <strong>{activeProfile.name}</strong>
           <span>{screens.find((item) => item.id === screen)?.label}</span>
         </div>
         <div className="mobile-topbar-right">
@@ -720,12 +781,26 @@ function App() {
           <strong>Quản lý thu chi</strong>
         </div>
 
-        <div className="profile-switcher" aria-label="Chọn giao diện">
+        <div className="profile-switcher" aria-label="Chọn profile">
+          <div className="profile-dropdown-row">
+            <select
+              className="profile-dropdown"
+              value={activeOwner}
+              onChange={(event) => { setActiveOwner(event.target.value); setSidebarOpen(false); }}
+            >
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>{profile.name}</option>
+              ))}
+            </select>
+            <button className="ghost-button small" onClick={() => { setShowProfileForm(true); setEditingProfileId(''); setProfileFormName(''); setProfileFormColor(colorOptions[0].hex); }} type="button" title="Thêm profile">+</button>
+          </div>
           {profiles.map((profile) => (
-            <button className={profile.id === activeOwner ? 'profile-button active' : 'profile-button'} key={profile.id} onClick={() => { setActiveOwner(profile.id); setSidebarOpen(false); }} type="button">
-              <span style={{ backgroundColor: profile.accent }} />
-              {profile.shortLabel}
-            </button>
+            <div className={`profile-row ${profile.id === activeOwner ? 'active' : ''}`} key={profile.id}>
+              <span className="profile-dot" style={{ backgroundColor: profile.color }} />
+              <span className="profile-name" onClick={() => { setActiveOwner(profile.id); setSidebarOpen(false); }}>{profile.name}</span>
+              <button className="ghost-button tiny" onClick={() => { setEditingProfileId(profile.id); setProfileFormName(profile.name); setProfileFormColor(profile.color); setShowProfileForm(true); }} type="button">✏️</button>
+              {profiles.length > 1 ? <button className="danger-button tiny" onClick={() => void removeProfile(profile.id)} type="button">🗑️</button> : null}
+            </div>
           ))}
         </div>
 
@@ -752,7 +827,7 @@ function App() {
       <main className="content">
         <header className="topbar">
           <div>
-            <p>{activeProfile.label}</p>
+            <p>{activeProfile.name}</p>
             <h1>{screens.find((item) => item.id === screen)?.label}</h1>
           </div>
           {renderMonthPicker()}
@@ -785,7 +860,7 @@ function App() {
             {hasAccountSettings ? (
               <section className="account-hero-card">
                 <div className="account-hero-top">
-                  <span className="account-hero-label">💰 {activeProfile.label} — Tài khoản chính</span>
+                  <span className="account-hero-label">💰 {activeProfile.name} — Tài khoản chính</span>
                   <span className="account-hero-hint">Số tiền hiện có</span>
                 </div>
                 <div className="account-hero-balance">
@@ -793,8 +868,8 @@ function App() {
                 </div>
                 <div className="account-hero-sub">
                   <span>Ban đầu: <strong>{currency(activeAccountSettings!.opening_balance)}</strong></span>
-                  <span>Thu: <strong className="money-positive">+{currency(sum(transactions.filter((t) => t.owner_id === activeOwner && t.type === 'income').map((t) => t.amount)))}</strong></span>
-                  <span>Chi: <strong className="money-negative">−{currency(sum(transactions.filter((t) => t.owner_id === activeOwner && t.type === 'expense').map((t) => t.amount)))}</strong></span>
+                  <span>Thu: <strong className="money-positive">+{currency(sum(transactions.filter((t) => t.profile_id === activeOwner && t.type === 'income').map((t) => t.amount)))}</strong></span>
+                  <span>Chi: <strong className="money-negative">−{currency(sum(transactions.filter((t) => t.profile_id === activeOwner && t.type === 'expense').map((t) => t.amount)))}</strong></span>
                 </div>
               </section>
             ) : null}
@@ -875,11 +950,11 @@ function App() {
             </section>
 
             {/* Budget history */}
-            {monthlyBudgets.filter((b) => b.owner_id === activeOwner).length > 0 ? (
+            {monthlyBudgets.filter((b) => b.profile_id === activeOwner).length > 0 ? (
               <section className="panel wide-panel">
                 <h2>📅 Các tháng đã lưu</h2>
                 <div className="table-wrap"><table><thead><tr><th>Tháng</th><th>Số tiền đầu tháng</th><th>Ghi chú</th></tr></thead><tbody>
-                  {monthlyBudgets.filter((budget) => budget.owner_id === activeOwner).map((budget) => (
+                  {monthlyBudgets.filter((budget) => budget.profile_id === activeOwner).map((budget) => (
                     <tr key={budget.id}><td>{monthLabel(budget.month_start)}</td><td>{currency(budget.starting_amount)}</td><td>{budget.note}</td></tr>
                   ))}
                 </tbody></table></div>
@@ -973,8 +1048,8 @@ function App() {
             <div className="panel">
               <div className="section-head"><h2>Danh sách chi cố định</h2><strong>{currency(monthlySummary.fixedExpense)}</strong></div>
               <div className="list">
-                {fixedExpenses.filter((item) => item.owner_id === activeOwner).length === 0 ? <p className="empty-state">Chưa có khoản chi cố định.</p> : null}
-                {fixedExpenses.filter((item) => item.owner_id === activeOwner).map((item) => {
+                {fixedExpenses.filter((item) => item.profile_id === activeOwner).length === 0 ? <p className="empty-state">Chưa có khoản chi cố định.</p> : null}
+                {fixedExpenses.filter((item) => item.profile_id === activeOwner).map((item) => {
                   const category = categoryLookup.get(item.category_id)
                   return (
                     <article className="list-row" key={item.id}>
@@ -1019,6 +1094,36 @@ function App() {
               </tbody></table></div>
             </div>
           </section>
+        ) : null}
+
+        {showProfileForm ? (
+          <div className="modal-overlay" onClick={() => setShowProfileForm(false)}>
+            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="section-head">
+                <h2>{editingProfileId ? 'Sửa profile' : 'Tạo profile mới'}</h2>
+                <button className="ghost-button" onClick={() => setShowProfileForm(false)} type="button">Đóng</button>
+              </div>
+              <div className="form-grid two-cols">
+                <label>
+                  Tên profile
+                  <input value={profileFormName} onChange={(event) => setProfileFormName(event.target.value)} placeholder="Ví dụ: Mẹ, Bố, Con..." />
+                </label>
+                <label>
+                  Màu
+                  <select value={profileFormColor} onChange={(event) => setProfileFormColor(event.target.value)}>
+                    {colorOptions.map((color) => <option key={color.hex} value={color.hex}>{color.name}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="profile-preview">
+                <span className="profile-dot large" style={{ backgroundColor: profileFormColor }} />
+                <strong>{profileFormName || 'Tên profile'}</strong>
+              </div>
+              <div className="form-actions">
+                <button onClick={() => void saveProfile()} type="button">{editingProfileId ? 'Cập nhật' : 'Tạo profile'}</button>
+              </div>
+            </div>
+          </div>
         ) : null}
 
       </main>
