@@ -147,7 +147,8 @@ function App() {
   const [profileFormColor, setProfileFormColor] = useState<string>(colorOptions[0].hex)
   const [editingProfileId, setEditingProfileId] = useState('')
 
-  const activeProfile = profiles.find((profile) => profile.id === activeOwner) ?? profiles[0]
+  const defaultProfile: Profile = { id: 'wife', name: 'Vợ', color: '#db2777', accent: '#db2777', soft_accent: '#fce7f3', created_at: '' }
+  const activeProfile = profiles.find((profile) => profile.id === activeOwner) ?? profiles[0] ?? defaultProfile
 
   const categoryLookup = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories])
   const incomeCategories = useMemo(() => categories.filter((category) => category.kind === 'income'), [categories])
