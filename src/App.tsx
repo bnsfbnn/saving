@@ -142,6 +142,7 @@ function App() {
   const [fixedDraft, setFixedDraft] = useState<FixedExpenseDraft>(() => createFixedExpenseDraft())
   const [editingFixedExpenseId, setEditingFixedExpenseId] = useState('')
   const [showProfileForm, setShowProfileForm] = useState(false)
+  const [showProfileManager, setShowProfileManager] = useState(false)
   const [profileFormName, setProfileFormName] = useState('')
   const [profileFormColor, setProfileFormColor] = useState<string>(colorOptions[0].hex)
   const [editingProfileId, setEditingProfileId] = useState('')
@@ -729,16 +730,8 @@ function App() {
                 <option key={profile.id} value={profile.id}>{profile.name}</option>
               ))}
             </select>
-            <button className="ghost-button small" onClick={() => { setShowProfileForm(true); setEditingProfileId(''); setProfileFormName(''); setProfileFormColor(colorOptions[0].hex); }} type="button" title="Thêm profile">+</button>
+            <button className="ghost-button small" onClick={() => setShowProfileManager(true)} type="button" title="Quản lý profile">⚙️</button>
           </div>
-          {profiles.map((profile) => (
-            <div className={`profile-row ${profile.id === activeOwner ? 'active' : ''}`} key={profile.id}>
-              <span className="profile-dot" style={{ backgroundColor: profile.color }} />
-              <span className="profile-name" onClick={() => { setActiveOwner(profile.id); setSidebarOpen(false); }}>{profile.name}</span>
-              <button className="ghost-button tiny" onClick={() => { setEditingProfileId(profile.id); setProfileFormName(profile.name); setProfileFormColor(profile.color); setShowProfileForm(true); }} type="button">✏️</button>
-              {profiles.length > 1 ? <button className="danger-button tiny" onClick={() => void removeProfile(profile.id)} type="button">🗑️</button> : null}
-            </div>
-          ))}
         </div>
 
         <nav className="nav-list">
@@ -1031,31 +1024,58 @@ function App() {
           </section>
         ) : null}
 
-        {showProfileForm ? (
-          <div className="modal-overlay" onClick={() => setShowProfileForm(false)}>
-            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        {/* Profile Manager Modal */}
+        {showProfileManager ? (
+          <div className="modal-overlay" onClick={() => { setShowProfileManager(false); setShowProfileForm(false); setEditingProfileId(''); }}>
+            <div className="modal-card profile-manager" onClick={(e) => e.stopPropagation()}>
               <div className="section-head">
-                <h2>{editingProfileId ? 'Sửa profile' : 'Tạo profile mới'}</h2>
-                <button className="ghost-button" onClick={() => setShowProfileForm(false)} type="button">Đóng</button>
+                <h2>👤 Quản lý profile</h2>
+                <button className="ghost-button" onClick={() => { setShowProfileManager(false); setShowProfileForm(false); setEditingProfileId(''); }} type="button">Đóng</button>
               </div>
-              <div className="form-grid two-cols">
-                <label>
-                  Tên profile
-                  <input value={profileFormName} onChange={(event) => setProfileFormName(event.target.value)} placeholder="Ví dụ: Mẹ, Bố, Con..." />
-                </label>
-                <label>
-                  Màu
-                  <select value={profileFormColor} onChange={(event) => setProfileFormColor(event.target.value)}>
-                    {colorOptions.map((color) => <option key={color.hex} value={color.hex}>{color.name}</option>)}
-                  </select>
-                </label>
-              </div>
-              <div className="profile-preview">
-                <span className="profile-dot large" style={{ backgroundColor: profileFormColor }} />
-                <strong>{profileFormName || 'Tên profile'}</strong>
-              </div>
-              <div className="form-actions">
-                <button onClick={() => void saveProfile()} type="button">{editingProfileId ? 'Cập nhật' : 'Tạo profile'}</button>
+
+              {/* Form tạo/sửa profile */}
+              {showProfileForm ? (
+                <div className="profile-form-section">
+                  <div className="form-grid two-cols">
+                    <label>
+                      Tên profile
+                      <input value={profileFormName} onChange={(event) => setProfileFormName(event.target.value)} placeholder="Ví dụ: Mẹ, Bố, Con..." />
+                    </label>
+                    <label>
+                      Màu
+                      <select value={profileFormColor} onChange={(event) => setProfileFormColor(event.target.value)}>
+                        {colorOptions.map((color) => <option key={color.hex} value={color.hex}>{color.name}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="profile-preview">
+                    <span className="profile-dot large" style={{ backgroundColor: profileFormColor }} />
+                    <strong>{profileFormName || 'Tên profile'}</strong>
+                  </div>
+                  <div className="form-actions">
+                    <button onClick={() => void saveProfile()} type="button">{editingProfileId ? 'Cập nhật' : 'Tạo profile'}</button>
+                    <button className="ghost-button" onClick={() => { setShowProfileForm(false); setEditingProfileId(''); }} type="button">Hủy</button>
+                  </div>
+                </div>
+              ) : (
+                <button className="create-profile-btn" onClick={() => { setShowProfileForm(true); setEditingProfileId(''); setProfileFormName(''); setProfileFormColor(colorOptions[0].hex); }} type="button">+ Tạo profile mới</button>
+              )}
+
+              {/* Danh sách profiles */}
+              <div className="profile-manager-list">
+                {profiles.map((profile) => (
+                  <div className={`profile-manager-row ${profile.id === activeOwner ? 'active' : ''}`} key={profile.id} onClick={() => { setActiveOwner(profile.id); setShowProfileManager(false); }}>
+                    <span className="profile-dot" style={{ backgroundColor: profile.color }} />
+                    <div className="profile-manager-info">
+                      <strong>{profile.name}</strong>
+                      <span>{profile.id === activeOwner ? 'Đang dùng' : ''}</span>
+                    </div>
+                    <div className="profile-manager-actions" onClick={(e) => e.stopPropagation()}>
+                      <button className="ghost-button tiny" onClick={() => { setEditingProfileId(profile.id); setProfileFormName(profile.name); setProfileFormColor(profile.color); setShowProfileForm(true); }} type="button">✏️</button>
+                      {profiles.length > 1 ? <button className="danger-button tiny" onClick={() => void removeProfile(profile.id)} type="button">🗑️</button> : null}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

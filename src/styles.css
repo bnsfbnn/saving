@@ -757,6 +757,71 @@ th { color: var(--muted); font-size: 0.86rem; }
   background: var(--surface-muted);
 }
 
+/* ========== PROFILE MANAGER ========== */
+.profile-manager {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.profile-form-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.create-profile-btn {
+  width: 100%;
+  background: var(--accent-soft);
+  border: 2px dashed var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.profile-manager-list {
+  display: grid;
+  gap: 6px;
+}
+
+.profile-manager-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.profile-manager-row:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.profile-manager-row.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.profile-manager-info {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.profile-manager-info strong { font-size: 0.95rem; }
+.profile-manager-info span { font-size: 0.78rem; color: var(--accent); font-weight: 600; }
+
+.profile-manager-actions {
+  display: flex;
+  gap: 4px;
+}
+
 /* ========== TABLET (<= 1024px) ========== */
 @media (max-width: 1024px) {
   .app-shell { grid-template-columns: 1fr; }
