@@ -175,16 +175,19 @@ function App() {
     const totalIncome = sum(ownerTransactions.filter((t) => t.type === 'income').map((t) => t.amount))
     const totalExpense = sum(ownerTransactions.filter((t) => t.type === 'expense').map((t) => t.amount))
 
-    // Tổng chi cố định: gom tất cả các tháng có giao dịch
-    const months = [...new Set(ownerTransactions.map((t) => t.occurred_on.slice(0, 7)))]
-    const totalFixed = months.reduce((acc, m) => {
+    // Tổng chi cố định: gom từ tháng đầu tiên đến tháng hiện tại
+    const txMonths = ownerTransactions.map((t) => t.occurred_on.slice(0, 7))
+    const currentMonth = selectedMonth.slice(0, 7)
+    const allMonths = [...new Set([...txMonths, currentMonth])].sort()
+
+    const totalFixed = allMonths.reduce((acc, m) => {
       const monthStart = `${m}-01`
       const occurrences = fixedOccurrencesForMonth(fixedExpenses, activeOwner, monthStart)
       return acc + sum(occurrences.map((o) => o.amount))
     }, 0)
 
     return opening + totalIncome - totalExpense - totalFixed
-  }, [activeAccountSettings, transactions, activeOwner, fixedExpenses])
+  }, [activeAccountSettings, transactions, activeOwner, fixedExpenses, selectedMonth])
 
   const monthlySummary = useMemo(
     () => calculateMonthlySummary(transactions, fixedExpenses, activeMonthlyBudget, activeOwner, selectedMonth),
