@@ -214,18 +214,20 @@ function App() {
     if (loading || !activeAccountSettings || !supabase) return
     if (activeMonthlyBudget) return // Đã có budget cho tháng này
 
-    // Tính remaining của tháng trước
+    // Tính remaining của tháng trước = đầu tháng trước + thu - chi - chi cố định
     const [year, month] = selectedMonth.split('-').map(Number)
     const prevMonthDate = new Date(year, month - 2, 1)
     const prevMonthStart = formatISODate(prevMonthDate)
+
+    const prevBudget = monthlyBudgets.find((b) => b.owner_id === activeOwner && b.month_start === prevMonthStart)
+    const prevStartingAmount = prevBudget?.starting_amount ?? (activeAccountSettings.opening_balance ?? 0)
 
     const prevMonthTxs = transactionsForOwnerAndMonth(transactions, activeOwner, prevMonthStart)
     const prevMonthFixed = fixedOccurrencesForMonth(fixedExpenses, activeOwner, prevMonthStart)
     const prevIncome = sum(prevMonthTxs.filter((t) => t.type === 'income').map((t) => t.amount))
     const prevExpense = sum(prevMonthTxs.filter((t) => t.type === 'expense').map((t) => t.amount))
     const prevFixed = sum(prevMonthFixed.map((o) => o.amount))
-    const openingBalance = activeAccountSettings.opening_balance ?? 0
-    const prevRemaining = openingBalance + prevIncome - prevExpense - prevFixed
+    const prevRemaining = prevStartingAmount + prevIncome - prevExpense - prevFixed
 
     void (async () => {
       const { data, error } = await supabase
@@ -248,7 +250,7 @@ function App() {
         })
       }
     })()
-  }, [selectedMonth, activeOwner, activeMonthlyBudget, loading, activeAccountSettings, transactions, fixedExpenses])
+  }, [selectedMonth, activeOwner, activeMonthlyBudget, loading, activeAccountSettings, transactions, fixedExpenses, monthlyBudgets])
 
   useEffect(() => {
     if (transactionCategoryOptions.length === 0) return
