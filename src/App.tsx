@@ -167,6 +167,25 @@ function App() {
   // Chỉ hiện input nếu CHƯA có tài khoản (chưa lưu opening_balance lần nào)
   const hasAccountSettings = activeAccountSettings != null
 
+  // Tài khoản chính = Số tiền hiện tại thực sự
+  // = Opening balance + Tổng thu − Tổng chi − Tổng chi cố định (tất cả các tháng)
+  const mainBalance = useMemo(() => {
+    const opening = activeAccountSettings?.opening_balance ?? 0
+    const ownerTransactions = transactions.filter((t) => t.owner_id === activeOwner)
+    const totalIncome = sum(ownerTransactions.filter((t) => t.type === 'income').map((t) => t.amount))
+    const totalExpense = sum(ownerTransactions.filter((t) => t.type === 'expense').map((t) => t.amount))
+
+    // Tổng chi cố định: gom tất cả các tháng có giao dịch
+    const months = [...new Set(ownerTransactions.map((t) => t.occurred_on.slice(0, 7)))]
+    const totalFixed = months.reduce((acc, m) => {
+      const monthStart = `${m}-01`
+      const occurrences = fixedOccurrencesForMonth(fixedExpenses, activeOwner, monthStart)
+      return acc + sum(occurrences.map((o) => o.amount))
+    }, 0)
+
+    return opening + totalIncome - totalExpense - totalFixed
+  }, [activeAccountSettings, transactions, activeOwner, fixedExpenses])
+
   const monthlySummary = useMemo(
     () => calculateMonthlySummary(transactions, fixedExpenses, activeMonthlyBudget, activeOwner, selectedMonth),
     [activeMonthlyBudget, activeOwner, fixedExpenses, selectedMonth, transactions],
@@ -745,15 +764,15 @@ function App() {
               <section className="account-hero-card">
                 <div className="account-hero-top">
                   <span className="account-hero-label">💰 {activeProfile.label} — Tài khoản chính</span>
-                  <span className="account-hero-hint">Đầu tháng + Thu − Chi</span>
+                  <span className="account-hero-hint">Số tiền hiện có</span>
                 </div>
                 <div className="account-hero-balance">
-                  <span className={monthlySummary.remaining >= 0 ? 'money-positive' : 'money-negative'}>{currency(monthlySummary.remaining)}</span>
+                  <span className={mainBalance >= 0 ? 'money-positive' : 'money-negative'}>{currency(mainBalance)}</span>
                 </div>
                 <div className="account-hero-sub">
-                  <span>Đầu tháng: <strong>{currency(monthlySummary.startingAmount)}</strong></span>
-                  <span>Thu: <strong className="money-positive">+{currency(monthlySummary.income)}</strong></span>
-                  <span>Chi: <strong className="money-negative">−{currency(monthlySummary.totalExpense)}</strong></span>
+                  <span>Ban đầu: <strong>{currency(activeAccountSettings!.opening_balance)}</strong></span>
+                  <span>Thu: <strong className="money-positive">+{currency(sum(transactions.filter((t) => t.owner_id === activeOwner && t.type === 'income').map((t) => t.amount)))}</strong></span>
+                  <span>Chi: <strong className="money-negative">−{currency(sum(transactions.filter((t) => t.owner_id === activeOwner && t.type === 'expense').map((t) => t.amount)))}</strong></span>
                 </div>
               </section>
             ) : null}
