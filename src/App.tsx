@@ -24,7 +24,6 @@ import {
 import {
   buildCalendarDays,
   buildCategoryBreakdown,
-  calculateMainBalance,
   calculateMonthlySummary,
   currency,
   fixedOccurrencesForMonth,
@@ -163,12 +162,6 @@ function App() {
   const activeAccountSettings = useMemo(
     () => accountSettings.find((s) => s.owner_id === activeOwner),
     [accountSettings, activeOwner],
-  )
-
-  // Tài khoản chính = Số dư ban đầu + Thu - Chi (tất cả giao dịch từ khi bắt đầu)
-  const mainBalance = useMemo(
-    () => calculateMainBalance(activeAccountSettings?.opening_balance ?? 0, transactions, activeOwner),
-    [activeAccountSettings, transactions, activeOwner],
   )
 
   // Chỉ hiện input nếu CHƯA có tài khoản (chưa lưu opening_balance lần nào)
@@ -752,16 +745,15 @@ function App() {
               <section className="account-hero-card">
                 <div className="account-hero-top">
                   <span className="account-hero-label">💰 {activeProfile.label} — Tài khoản chính</span>
-                  <span className="account-hero-hint">Số dư ban đầu + Thu − Chi</span>
+                  <span className="account-hero-hint">Đầu tháng + Thu − Chi</span>
                 </div>
                 <div className="account-hero-balance">
-                  <span className={mainBalance >= 0 ? 'money-positive' : 'money-negative'}>{currency(mainBalance)}</span>
+                  <span className={monthlySummary.remaining >= 0 ? 'money-positive' : 'money-negative'}>{currency(monthlySummary.remaining)}</span>
                 </div>
                 <div className="account-hero-sub">
-                  <span>Ban đầu: <strong>{currency(activeAccountSettings!.opening_balance)}</strong></span>
+                  <span>Đầu tháng: <strong>{currency(monthlySummary.startingAmount)}</strong></span>
                   <span>Thu: <strong className="money-positive">+{currency(monthlySummary.income)}</strong></span>
                   <span>Chi: <strong className="money-negative">−{currency(monthlySummary.totalExpense)}</strong></span>
-                  <span>Giao dịch: <strong>{transactions.filter((t) => t.owner_id === activeOwner).length}</strong></span>
                 </div>
               </section>
             ) : null}
