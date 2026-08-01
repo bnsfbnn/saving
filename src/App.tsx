@@ -167,22 +167,30 @@ function App() {
   // Chỉ hiện input nếu CHƯA có tài khoản (chưa lưu opening_balance lần nào)
   const hasAccountSettings = activeAccountSettings != null
 
-  // Tài khoản chính = Số tiền hiện tại thực sự
-  // = Opening balance + Tổng thu − Tổng chi − Tổng chi cố định (tất cả các tháng)
+  // Tài khoản chính = Số tiền hiện có thực sự
+  // = Opening + Tổng thu − Tổng chi − Tổng chi cố định (tất cả các tháng)
   const mainBalance = useMemo(() => {
     const opening = activeAccountSettings?.opening_balance ?? 0
     const ownerTransactions = transactions.filter((t) => t.owner_id === activeOwner)
     const totalIncome = sum(ownerTransactions.filter((t) => t.type === 'income').map((t) => t.amount))
     const totalExpense = sum(ownerTransactions.filter((t) => t.type === 'expense').map((t) => t.amount))
 
-    // Tổng chi cố định: gom từ tháng đầu tiên đến tháng hiện tại
-    const txMonths = ownerTransactions.map((t) => t.occurred_on.slice(0, 7))
+    // Scan tất cả các tháng từ tháng đầu tiên đến tháng hiện tại
+    const firstTxMonth = ownerTransactions.length > 0
+      ? ownerTransactions.reduce((min, t) => t.occurred_on.slice(0, 7) < min ? t.occurred_on.slice(0, 7) : min, '9999-12')
+      : selectedMonth.slice(0, 7)
     const currentMonth = selectedMonth.slice(0, 7)
-    const allMonths = [...new Set([...txMonths, currentMonth])].sort()
 
-    const totalFixed = allMonths.reduce((acc, m) => {
-      const monthStart = `${m}-01`
-      const occurrences = fixedOccurrencesForMonth(fixedExpenses, activeOwner, monthStart)
+    const allMonths: string[] = []
+    let [y, m] = firstTxMonth.split('-').map(Number)
+    while (`${y}-${String(m).padStart(2, '0')}` <= currentMonth) {
+      allMonths.push(`${y}-${String(m).padStart(2, '0')}`)
+      m++
+      if (m > 12) { m = 1; y++ }
+    }
+
+    const totalFixed = allMonths.reduce((acc, month) => {
+      const occurrences = fixedOccurrencesForMonth(fixedExpenses, activeOwner, `${month}-01`)
       return acc + sum(occurrences.map((o) => o.amount))
     }, 0)
 
