@@ -168,21 +168,32 @@ function App() {
   const hasAccountSettings = activeAccountSettings != null
 
   // Tài khoản chính = Số tiền hiện có thực sự
-  // = Opening + Tổng thu − Tổng chi − Tổng chi cố định (tất cả các tháng)
+  // = Opening balance + Tổng thu − Tổng chi − Tổng chi cố định
+  // Opening balance là số tiền tiết kiệm ban đầu (tháng đầu tiên)
+  // Chi cố định được trừ từ tháng đầu tiên có budget/transaction đến tháng hiện tại
   const mainBalance = useMemo(() => {
     const opening = activeAccountSettings?.opening_balance ?? 0
     const ownerTransactions = transactions.filter((t) => t.owner_id === activeOwner)
     const totalIncome = sum(ownerTransactions.filter((t) => t.type === 'income').map((t) => t.amount))
     const totalExpense = sum(ownerTransactions.filter((t) => t.type === 'expense').map((t) => t.amount))
 
-    // Scan tất cả các tháng từ tháng đầu tiên đến tháng hiện tại
+    // Tìm tháng đầu tiên (từ budget hoặc transaction)
+    const ownerBudgets = monthlyBudgets.filter((b) => b.owner_id === activeOwner)
+    const firstBudgetMonth = ownerBudgets.length > 0
+      ? ownerBudgets.reduce((min, b) => b.month_start.slice(0, 7) < min ? b.month_start.slice(0, 7) : min, '9999-12')
+      : null
     const firstTxMonth = ownerTransactions.length > 0
       ? ownerTransactions.reduce((min, t) => t.occurred_on.slice(0, 7) < min ? t.occurred_on.slice(0, 7) : min, '9999-12')
-      : selectedMonth.slice(0, 7)
+      : null
     const currentMonth = selectedMonth.slice(0, 7)
 
+    // Tháng đầu tiên = nhỏ nhất trong budget, transaction, và tháng hiện tại
+    const candidates = [firstBudgetMonth, firstTxMonth, currentMonth].filter(Boolean) as string[]
+    const firstMonth = candidates.reduce((min, c) => c < min ? c : min, '9999-12')
+
+    // Scan từ tháng đầu tiên đến tháng hiện tại
     const allMonths: string[] = []
-    let [y, m] = firstTxMonth.split('-').map(Number)
+    let [y, m] = firstMonth.split('-').map(Number)
     while (`${y}-${String(m).padStart(2, '0')}` <= currentMonth) {
       allMonths.push(`${y}-${String(m).padStart(2, '0')}`)
       m++
@@ -195,7 +206,7 @@ function App() {
     }, 0)
 
     return opening + totalIncome - totalExpense - totalFixed
-  }, [activeAccountSettings, transactions, activeOwner, fixedExpenses, selectedMonth])
+  }, [activeAccountSettings, transactions, activeOwner, fixedExpenses, selectedMonth, monthlyBudgets])
 
   const monthlySummary = useMemo(
     () => calculateMonthlySummary(transactions, fixedExpenses, activeMonthlyBudget, activeOwner, selectedMonth),
