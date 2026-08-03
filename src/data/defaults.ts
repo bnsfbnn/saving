@@ -30,7 +30,7 @@ export const fixedFrequencyLabels: Record<FixedFrequency, string> = {
   monthly: 'Hàng tháng',
 }
 
-export const weekDayLabels = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'] as const
+export const weekDayLabels = ['Chủ nhật', 'Hai', 'Ba', 'Tư', 'Năm', 'Sáu', 'Bảy'] as const
 
 export const colorOptions = [
   { name: 'Hồng', hex: '#db2777', soft: '#fce7f3' },
