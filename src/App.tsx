@@ -535,6 +535,7 @@ function App() {
       return setMessage('Đã cập nhật profile.')
     }
 
+    const selectedColor = colorOptions.find((color) => color.hex === profileFormColor)
     const softAccent = selectedColor?.soft ?? '#f3f4f6'
     const { data, error } = await supabase
       .from('profiles')
