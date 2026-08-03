@@ -535,7 +535,7 @@ function App() {
       return setMessage('Đã cập nhật profile.')
     }
 
-    const softAccent = profileFormColor + '20'
+    const softAccent = selectedColor?.soft ?? '#f3f4f6'
     const { data, error } = await supabase
       .from('profiles')
       .insert({ id: profileId, name, color: profileFormColor, accent: profileFormColor, soft_accent: softAccent })

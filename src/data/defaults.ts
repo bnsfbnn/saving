@@ -33,15 +33,15 @@ export const fixedFrequencyLabels: Record<FixedFrequency, string> = {
 export const weekDayLabels = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'] as const
 
 export const colorOptions = [
-  { name: 'Hồng', hex: '#db2777' },
-  { name: 'Xanh dương', hex: '#2563eb' },
-  { name: 'Xanh lá', hex: '#16a34a' },
-  { name: 'Cam', hex: '#ea580c' },
-  { name: 'Tím', hex: '#7c3aed' },
-  { name: 'Ngọc', hex: '#0f766e' },
-  { name: 'Đỏ', hex: '#dc2626' },
-  { name: 'Vàng', hex: '#ca8a04' },
-  { name: 'Xám', hex: '#64748b' },
+  { name: 'Hồng', hex: '#db2777', soft: '#fce7f3' },
+  { name: 'Xanh dương', hex: '#2563eb', soft: '#dbeafe' },
+  { name: 'Xanh lá', hex: '#16a34a', soft: '#dcfce7' },
+  { name: 'Cam', hex: '#ea580c', soft: '#ffedd5' },
+  { name: 'Tím', hex: '#7c3aed', soft: '#e9d5ff' },
+  { name: 'Ngọc', hex: '#0f766e', soft: '#d1fae5' },
+  { name: 'Đỏ', hex: '#dc2626', soft: '#fee2e2' },
+  { name: 'Vàng', hex: '#ca8a04', soft: '#fef3c7' },
+  { name: 'Xám', hex: '#64748b', soft: '#f1f5f9' },
 ] as const
 
 export const iconOptions = [
