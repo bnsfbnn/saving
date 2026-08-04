@@ -157,7 +157,23 @@ p { color: var(--muted); }
 }
 
 .mobile-topbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   text-align: right;
+}
+
+.mobile-month-picker {
+  display: inline-flex;
+  align-items: center;
+}
+
+.mobile-month-picker input {
+  width: 132px;
+  min-height: 32px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
 }
 
 .mobile-month {
@@ -908,6 +924,8 @@ th { color: var(--muted); font-size: 0.86rem; }
 
   .month-picker { flex-direction: column; align-items: stretch; }
   .month-picker label { min-width: 0; }
+  .mobile-topbar-right { flex-wrap: wrap; }
+  .mobile-month-picker input { width: 100%; min-width: 120px; }
 
   .section-head { flex-wrap: wrap; }
 

@@ -171,26 +171,31 @@ function App() {
   // Chỉ hiện input nếu CHƯA có tài khoản (chưa lưu opening_balance lần nào)
   const hasAccountSettings = activeAccountSettings != null
 
+  const totalVariableExpenseAllTime = useMemo(
+    () => sum(transactions.filter((t) => t.profile_id === activeOwner && t.type === 'expense').map((t) => t.amount)),
+    [activeOwner, transactions],
+  )
+
+  const totalFixedExpenseAllTime = useMemo(() => {
+    const ownerTransactions = transactions.filter((t) => t.profile_id === activeOwner)
+    const txMonths = [...new Set(ownerTransactions.map((t) => t.occurred_on.slice(0, 7)))]
+    const currentMonth = selectedMonth.slice(0, 7)
+    const allMonths = [...new Set([...txMonths, currentMonth])].sort()
+
+    return allMonths.reduce((acc, month) => {
+      const occurrences = fixedOccurrencesForMonth(fixedExpenses, activeOwner, `${month}-01`, fixedExpenseOverrides)
+      return acc + sum(occurrences.map((o) => o.amount))
+    }, 0)
+  }, [activeOwner, fixedExpenseOverrides, fixedExpenses, selectedMonth, transactions])
+
   // Tài khoản chính = Số khởi đầu + Tổng (Thu − Chi − Chi cố định) tất cả các tháng
   const mainBalance = useMemo(() => {
     const opening = activeAccountSettings?.opening_balance ?? 0
     const ownerTransactions = transactions.filter((t) => t.profile_id === activeOwner)
     const totalIncome = sum(ownerTransactions.filter((t) => t.type === 'income').map((t) => t.amount))
-    const totalVariableExpense = sum(ownerTransactions.filter((t) => t.type === 'expense').map((t) => t.amount))
 
-    // Tìm tất cả các tháng có giao dịch
-    const txMonths = [...new Set(ownerTransactions.map((t) => t.occurred_on.slice(0, 7)))]
-    const currentMonth = selectedMonth.slice(0, 7)
-    const allMonths = [...new Set([...txMonths, currentMonth])].sort()
-
-    // Tổng chi cố định tất cả các tháng
-    const totalFixed = allMonths.reduce((acc, month) => {
-      const occurrences = fixedOccurrencesForMonth(fixedExpenses, activeOwner, `${month}-01`, fixedExpenseOverrides)
-      return acc + sum(occurrences.map((o) => o.amount))
-    }, 0)
-
-    return opening + totalIncome - totalVariableExpense - totalFixed
-  }, [activeAccountSettings, transactions, activeOwner, fixedExpenses, fixedExpenseOverrides, selectedMonth])
+    return opening + totalIncome - totalVariableExpenseAllTime - totalFixedExpenseAllTime
+  }, [activeAccountSettings, activeOwner, totalFixedExpenseAllTime, totalVariableExpenseAllTime, transactions])
 
   const monthlySummary = useMemo(
     () => calculateMonthlySummary(transactions, fixedExpenses, activeMonthlyBudget, activeOwner, selectedMonth, fixedExpenseOverrides),
@@ -598,14 +603,16 @@ function App() {
     return (
       <div className="month-picker">
         <label>
-          Tháng
           <input
             type="month"
             value={monthInputValue(selectedMonth)}
-            onChange={(event) => setSelectedMonth(`${event.target.value}-01`)}
+            onChange={(event) => {
+              const value = event.target.value
+              if (!value) return
+              setSelectedMonth(`${value}-01`)
+            }}
           />
         </label>
-        <strong>{monthLabel(selectedMonth)}</strong>
       </div>
     )
   }
@@ -730,7 +737,17 @@ function App() {
           <span>{screens.find((item) => item.id === screen)?.label}</span>
         </div>
         <div className="mobile-topbar-right">
-          <span className="mobile-month">{monthLabel(selectedMonth)}</span>
+          <label className="mobile-month-picker" aria-label="Chọn tháng">
+            <input
+              type="month"
+              value={monthInputValue(selectedMonth)}
+              onChange={(event) => {
+                const value = event.target.value
+                if (!value) return
+                setSelectedMonth(`${value}-01`)
+              }}
+            />
+          </label>
         </div>
       </header>
 
@@ -823,7 +840,7 @@ function App() {
                 <div className="account-hero-sub">
                   <span>Khởi đầu: <strong>{currency(activeAccountSettings!.opening_balance)}</strong></span>
                   <span>Thu: <strong className="money-positive">+{currency(sum(transactions.filter((t) => t.profile_id === activeOwner && t.type === 'income').map((t) => t.amount)))}</strong></span>
-                  <span>Chi: <strong className="money-negative">−{currency(sum(transactions.filter((t) => t.profile_id === activeOwner && t.type === 'expense').map((t) => t.amount)))}</strong></span>
+                  <span>Chi: <strong className="money-negative">−{currency(totalVariableExpenseAllTime + totalFixedExpenseAllTime)}</strong></span>
                 </div>
               </section>
             ) : null}
@@ -897,7 +914,7 @@ function App() {
                 <div><span>Thu</span><strong className="money-positive">+{currency(monthlySummary.income)}</strong></div>
                 <div><span>Chi thường</span><strong className="money-negative">-{currency(monthlySummary.variableExpense)}</strong></div>
                 <div><span>Chi cố định</span><strong className="money-negative">-{currency(monthlySummary.fixedExpense)}</strong></div>
-                <div className="summary-total"><span>Còn lại tháng</span><strong>{currency(monthlySummary.income - monthlySummary.variableExpense - monthlySummary.fixedExpense)}</strong></div>
+                <div className="summary-total"><span>Thu nhập ròng trong tháng</span><strong>{currency(monthlySummary.income - monthlySummary.variableExpense - monthlySummary.fixedExpense)}</strong></div>
               </div>
             </section>
 
