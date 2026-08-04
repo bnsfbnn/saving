@@ -5,6 +5,7 @@ import type {
   Category,
   CategoryKind,
   FixedExpense,
+  FixedExpenseOverride,
   FixedFrequency,
   MonthlyBudget,
   Profile,
@@ -133,6 +134,7 @@ function App() {
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([])
+  const [fixedExpenseOverrides, setFixedExpenseOverrides] = useState<FixedExpenseOverride[]>([])
   const [monthlyBudgets, setMonthlyBudgets] = useState<MonthlyBudget[]>([])
 
   const [transactionDraft, setTransactionDraft] = useState<TransactionDraft>(() => createTransactionDraft())
@@ -183,16 +185,16 @@ function App() {
 
     // Tổng chi cố định tất cả các tháng
     const totalFixed = allMonths.reduce((acc, month) => {
-      const occurrences = fixedOccurrencesForMonth(fixedExpenses, activeOwner, `${month}-01`)
+      const occurrences = fixedOccurrencesForMonth(fixedExpenses, activeOwner, `${month}-01`, fixedExpenseOverrides)
       return acc + sum(occurrences.map((o) => o.amount))
     }, 0)
 
     return opening + totalIncome - totalVariableExpense - totalFixed
-  }, [activeAccountSettings, transactions, activeOwner, fixedExpenses, selectedMonth])
+  }, [activeAccountSettings, transactions, activeOwner, fixedExpenses, fixedExpenseOverrides, selectedMonth])
 
   const monthlySummary = useMemo(
-    () => calculateMonthlySummary(transactions, fixedExpenses, activeMonthlyBudget, activeOwner, selectedMonth),
-    [activeMonthlyBudget, activeOwner, fixedExpenses, selectedMonth, transactions],
+    () => calculateMonthlySummary(transactions, fixedExpenses, activeMonthlyBudget, activeOwner, selectedMonth, fixedExpenseOverrides),
+    [activeMonthlyBudget, activeOwner, fixedExpenses, fixedExpenseOverrides, selectedMonth, transactions],
   )
 
   const monthTransactions = useMemo(
@@ -201,13 +203,13 @@ function App() {
   )
 
   const monthFixedOccurrences = useMemo(
-    () => fixedOccurrencesForMonth(fixedExpenses, activeOwner, selectedMonth),
-    [activeOwner, fixedExpenses, selectedMonth],
+    () => fixedOccurrencesForMonth(fixedExpenses, activeOwner, selectedMonth, fixedExpenseOverrides),
+    [activeOwner, fixedExpenses, fixedExpenseOverrides, selectedMonth],
   )
 
   const categoryBreakdown = useMemo(
-    () => buildCategoryBreakdown(categories, transactions, fixedExpenses, activeOwner, selectedMonth),
-    [activeOwner, categories, fixedExpenses, selectedMonth, transactions],
+    () => buildCategoryBreakdown(categories, transactions, fixedExpenses, activeOwner, selectedMonth, fixedExpenseOverrides),
+    [activeOwner, categories, fixedExpenses, fixedExpenseOverrides, selectedMonth, transactions],
   )
 
   const calendarDays = useMemo(() => buildCalendarDays(selectedMonth), [selectedMonth])
@@ -248,6 +250,7 @@ function App() {
     setCategories(result.data.categories)
     setTransactions(result.data.transactions)
     setFixedExpenses(result.data.fixedExpenses)
+    setFixedExpenseOverrides(result.data.fixedExpenseOverrides)
     setMonthlyBudgets(result.data.monthlyBudgets)
     setActiveOwner((current) => {
       if (result.data.profiles.length === 0) return defaultProfile.id

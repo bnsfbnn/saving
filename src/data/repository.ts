@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import type { AccountSettings, Category, FixedExpense, MonthlyBudget, Profile, Transaction } from '../types'
+import type { AccountSettings, Category, FixedExpense, FixedExpenseOverride, MonthlyBudget, Profile, Transaction } from '../types'
 import { defaultCategories, defaultProfiles } from './defaults'
 
 export type AppData = {
@@ -8,6 +8,7 @@ export type AppData = {
   categories: Category[]
   transactions: Transaction[]
   fixedExpenses: FixedExpense[]
+  fixedExpenseOverrides: FixedExpenseOverride[]
   monthlyBudgets: MonthlyBudget[]
 }
 
@@ -31,22 +32,24 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
         })),
         transactions: [],
         fixedExpenses: [],
+        fixedExpenseOverrides: [],
         monthlyBudgets: [],
       },
       message: 'Chưa cấu hình Supabase. App đang hiển thị dữ liệu mặc định và chưa thể lưu.',
     }
   }
 
-  const [profilesRes, categoriesRes, transactionsRes, fixedExpensesRes, monthlyBudgetsRes, accountRes] = await Promise.all([
+  const [profilesRes, categoriesRes, transactionsRes, fixedExpensesRes, fixedExpenseOverridesRes, monthlyBudgetsRes, accountRes] = await Promise.all([
     supabase.from('profiles').select('*').order('created_at', { ascending: true }),
     supabase.from('categories').select('*').order('kind', { ascending: true }).order('name', { ascending: true }),
     supabase.from('transactions').select('*').order('occurred_on', { ascending: false }),
     supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false }),
+    supabase.from('fixed_expense_overrides').select('*').order('month_start', { ascending: false }),
     supabase.from('monthly_budgets').select('*').order('month_start', { ascending: false }),
     supabase.from('account_settings').select('*').order('profile_id', { ascending: true }),
   ])
 
-  const firstError = profilesRes.error ?? categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error ?? monthlyBudgetsRes.error ?? accountRes.error
+  const firstError = profilesRes.error ?? categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error ?? fixedExpenseOverridesRes.error ?? monthlyBudgetsRes.error ?? accountRes.error
   if (firstError) {
     return {
       data: {
@@ -55,6 +58,7 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
         categories: [],
         transactions: [],
         fixedExpenses: [],
+        fixedExpenseOverrides: [],
         monthlyBudgets: [],
       },
       message: firstError.message,
@@ -92,13 +96,15 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
   const staleAccountSettings = ((accountRes.data as AccountSettings[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
   const staleTransactions = ((transactionsRes.data as Transaction[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
   const staleFixedExpenses = ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
+  const staleFixedExpenseOverrides = ((fixedExpenseOverridesRes.data as FixedExpenseOverride[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
   const staleMonthlyBudgets = ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
 
-  if (staleAccountSettings.length > 0 || staleTransactions.length > 0 || staleFixedExpenses.length > 0 || staleMonthlyBudgets.length > 0) {
+  if (staleAccountSettings.length > 0 || staleTransactions.length > 0 || staleFixedExpenses.length > 0 || staleFixedExpenseOverrides.length > 0 || staleMonthlyBudgets.length > 0) {
     const staleProfileIds = new Set([
       ...staleAccountSettings.map((item) => item.profile_id),
       ...staleTransactions.map((item) => item.profile_id),
       ...staleFixedExpenses.map((item) => item.profile_id),
+      ...staleFixedExpenseOverrides.map((item) => item.profile_id),
       ...staleMonthlyBudgets.map((item) => item.profile_id),
     ])
 
@@ -106,6 +112,7 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
       supabase.from('account_settings').delete().in('profile_id', [...staleProfileIds]),
       supabase.from('transactions').delete().in('profile_id', [...staleProfileIds]),
       supabase.from('fixed_expenses').delete().in('profile_id', [...staleProfileIds]),
+      supabase.from('fixed_expense_overrides').delete().in('profile_id', [...staleProfileIds]),
       supabase.from('monthly_budgets').delete().in('profile_id', [...staleProfileIds]),
     ])
   }
@@ -136,6 +143,7 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
       categories,
       transactions: ((transactionsRes.data as Transaction[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
       fixedExpenses: ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
+      fixedExpenseOverrides: ((fixedExpenseOverridesRes.data as FixedExpenseOverride[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
       monthlyBudgets: ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
     },
     message: '',
