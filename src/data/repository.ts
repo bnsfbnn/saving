@@ -86,8 +86,32 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     if (!error) categories = (data as Category[]) ?? []
   }
 
+  const validProfileIds = new Set(profiles.map((profile) => profile.id))
+
+  // Xóa dữ liệu "ghost" thuộc profile đã bị xóa hoặc không còn tồn tại trong bảng profiles.
+  const staleAccountSettings = ((accountRes.data as AccountSettings[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
+  const staleTransactions = ((transactionsRes.data as Transaction[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
+  const staleFixedExpenses = ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
+  const staleMonthlyBudgets = ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
+
+  if (staleAccountSettings.length > 0 || staleTransactions.length > 0 || staleFixedExpenses.length > 0 || staleMonthlyBudgets.length > 0) {
+    const staleProfileIds = new Set([
+      ...staleAccountSettings.map((item) => item.profile_id),
+      ...staleTransactions.map((item) => item.profile_id),
+      ...staleFixedExpenses.map((item) => item.profile_id),
+      ...staleMonthlyBudgets.map((item) => item.profile_id),
+    ])
+
+    await Promise.all([
+      supabase.from('account_settings').delete().in('profile_id', [...staleProfileIds]),
+      supabase.from('transactions').delete().in('profile_id', [...staleProfileIds]),
+      supabase.from('fixed_expenses').delete().in('profile_id', [...staleProfileIds]),
+      supabase.from('monthly_budgets').delete().in('profile_id', [...staleProfileIds]),
+    ])
+  }
+
   // Load account settings - đảm bảo mỗi profile đều có
-  let accountSettings = (accountRes.data as AccountSettings[]) ?? []
+  let accountSettings = ((accountRes.data as AccountSettings[]) ?? []).filter((item) => validProfileIds.has(item.profile_id))
   const profileIds = profiles.map((p) => p.id)
   const missingProfiles = profileIds.filter((id) => !accountSettings.some((s) => s.profile_id === id))
 
@@ -110,9 +134,9 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
       profiles,
       accountSettings,
       categories,
-      transactions: (transactionsRes.data as Transaction[]) ?? [],
-      fixedExpenses: (fixedExpensesRes.data as FixedExpense[]) ?? [],
-      monthlyBudgets: (monthlyBudgetsRes.data as MonthlyBudget[]) ?? [],
+      transactions: ((transactionsRes.data as Transaction[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
+      fixedExpenses: ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
+      monthlyBudgets: ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
     },
     message: '',
   }

@@ -249,6 +249,10 @@ function App() {
     setTransactions(result.data.transactions)
     setFixedExpenses(result.data.fixedExpenses)
     setMonthlyBudgets(result.data.monthlyBudgets)
+    setActiveOwner((current) => {
+      if (result.data.profiles.length === 0) return defaultProfile.id
+      return result.data.profiles.some((profile) => profile.id === current) ? current : result.data.profiles[0].id
+    })
     setMessage(result.message)
     setLoading(false)
   }
@@ -561,12 +565,28 @@ function App() {
     if (!supabase) return setMessage('Chưa cấu hình Supabase nên chưa thể xóa.')
     if (profiles.length <= 1) return setMessage('Phải còn ít nhất 1 profile.')
 
+    const remaining = profiles.filter((profile) => profile.id !== id)
+    const cleanup = await Promise.all([
+      supabase.from('account_settings').delete().eq('profile_id', id),
+      supabase.from('transactions').delete().eq('profile_id', id),
+      supabase.from('fixed_expenses').delete().eq('profile_id', id),
+      supabase.from('monthly_budgets').delete().eq('profile_id', id),
+    ])
+
+    const cleanupError = cleanup.find((result) => result.error)
+    if (cleanupError?.error) return setMessage(cleanupError.error.message)
+
     const { error } = await supabase.from('profiles').delete().eq('id', id)
     if (error) return setMessage(error.message)
-    setProfiles((current) => current.filter((p) => p.id !== id))
+
+    setProfiles(remaining)
+    setAccountSettings((current) => current.filter((item) => item.profile_id !== id))
+    setTransactions((current) => current.filter((item) => item.profile_id !== id))
+    setFixedExpenses((current) => current.filter((item) => item.profile_id !== id))
+    setMonthlyBudgets((current) => current.filter((item) => item.profile_id !== id))
+
     if (activeOwner === id) {
-      const remaining = profiles.filter((p) => p.id !== id)
-      if (remaining.length > 0) setActiveOwner(remaining[0].id)
+      setActiveOwner(remaining[0]?.id ?? defaultProfile.id)
     }
     setMessage('Đã xóa profile.')
   }
