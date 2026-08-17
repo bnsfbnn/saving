@@ -868,20 +868,41 @@ function App() {
                   <h2>📊 Tỷ trọng chi theo category</h2>
                   <span>{monthLabel(selectedMonth)}</span>
                 </div>
-                <div className="breakdown-list">
-                  {categoryBreakdown.length === 0 ? <p className="empty-state">Chưa có khoản chi trong tháng.</p> : null}
-                  {categoryBreakdown.map((item) => (
-                    <div className="breakdown-row" key={item.category.id}>
-                      <div className="breakdown-title">
-                        <span className="category-chip" style={{ backgroundColor: item.category.color }}>{item.category.icon}</span>
-                        <strong>{item.category.name}</strong>
-                        <em>{item.percent}%</em>
+                {categoryBreakdown.length === 0 ? (
+                  <p className="empty-state">Chưa có khoản chi trong tháng.</p>
+                ) : (
+                  <div className="breakdown-chart-layout">
+                    <div
+                      className="donut-chart"
+                      style={{
+                        background: `conic-gradient(${categoryBreakdown.reduce<{ color: string; start: number; end: number }[]>((segments, item) => {
+                          const start = segments.length ? segments[segments.length - 1].end : 0
+                          const end = start + (item.total / monthlySummary.totalExpense) * 100
+                          segments.push({ color: item.category.color, start, end })
+                          return segments
+                        }, []).map((segment) => `${segment.color} ${segment.start}% ${segment.end}%`).join(', ')})`,
+                      }}
+                      aria-label={`Tỷ trọng chi tháng ${monthLabel(selectedMonth)}`}
+                      role="img"
+                    >
+                      <div className="donut-center">
+                        <span>Tổng chi</span>
+                        <strong>{currency(monthlySummary.totalExpense)}</strong>
                       </div>
-                      <div className="bar-track"><span style={{ width: `${item.percent}%`, backgroundColor: item.category.color }} /></div>
-                      <p>{currency(item.total)}</p>
                     </div>
-                  ))}
-                </div>
+                    <div className="breakdown-legend">
+                      {categoryBreakdown.map((item) => (
+                        <div className="legend-row" key={item.category.id}>
+                          <span className="legend-color" style={{ backgroundColor: item.category.color }} aria-hidden="true" />
+                          <span className="category-chip" style={{ backgroundColor: item.category.color }}>{item.category.icon}</span>
+                          <strong>{item.category.name}</strong>
+                          <em>{item.percent}%</em>
+                          <span className="legend-amount">{currency(item.total)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="panel">
