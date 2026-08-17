@@ -889,17 +889,28 @@ function App() {
                         <span>Tổng chi</span>
                         <strong>{currency(monthlySummary.totalExpense)}</strong>
                       </div>
-                    </div>
-                    <div className="breakdown-legend">
-                      {categoryBreakdown.map((item) => (
-                        <div className="legend-row" key={item.category.id}>
-                          <span className="legend-color" style={{ backgroundColor: item.category.color }} aria-hidden="true" />
-                          <span className="category-chip" style={{ backgroundColor: item.category.color }}>{item.category.icon}</span>
-                          <strong>{item.category.name}</strong>
-                          <em>{item.percent}%</em>
-                          <span className="legend-amount">{currency(item.total)}</span>
-                        </div>
-                      ))}
+                      {categoryBreakdown.reduce<{ end: number }[]>((segments, item) => {
+                        const start = segments.length ? segments[segments.length - 1].end : 0
+                        const end = start + (item.total / monthlySummary.totalExpense) * 100
+                        const middle = start + (end - start) / 2
+                        segments.push({ end })
+                        return segments
+                      }, []).map((segment, index) => {
+                        const item = categoryBreakdown[index]
+                        const middle = segment.end - (item.total / monthlySummary.totalExpense) * 50
+                        return (
+                          <span
+                            className="donut-label"
+                            key={item.category.id}
+                            style={{ '--label-angle': `${middle * 3.6}deg` } as React.CSSProperties}
+                            title={`${item.category.name}: ${item.percent}%`}
+                          >
+                            <span className="category-chip" style={{ backgroundColor: item.category.color }}>{item.category.icon}</span>
+                            <strong>{item.percent}%</strong>
+                            <small>{item.category.name}</small>
+                          </span>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
