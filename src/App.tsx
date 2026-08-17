@@ -1069,8 +1069,8 @@ function App() {
 
         {screen === 'categories' ? (
           <section className="split-layout">
-            <div className="panel form-panel">
-              <div className="section-head"><h2>{editingCategoryId ? 'Sửa category' : 'Thêm category'}</h2>{editingCategoryId ? <button className="ghost-button" onClick={resetCategoryForm} type="button">Hủy sửa</button> : null}</div>
+  <div className="panel form-panel category-form-panel">
+  <div className="section-head"><h2>{editingCategoryId ? 'Sửa category' : 'Thêm category'}</h2>{editingCategoryId ? <button className="ghost-button" onClick={resetCategoryForm} type="button">Hủy sửa</button> : null}</div>
               <div className="form-grid two-cols">
                 <label>Tên category<input value={categoryDraft.name} onChange={(event) => setCategoryDraft((current) => ({ ...current, name: event.target.value }))} /></label>
                 <label>Nhóm<select value={categoryDraft.kind} onChange={(event) => setCategoryDraft((current) => ({ ...current, kind: event.target.value as CategoryKind }))}>{Object.entries(categoryKindLabels).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</select></label>
@@ -1081,8 +1081,8 @@ function App() {
               <div className="form-actions"><button onClick={() => void saveCategory()} type="button">{editingCategoryId ? 'Cập nhật' : 'Thêm category'}</button><button className="ghost-button" onClick={() => void seedDefaultCategories()} type="button">Nạp mặc định</button></div>
             </div>
 
-            <div className="panel">
-              <h2>Danh sách category</h2>
+  <div className="panel category-list-panel">
+  <h2>Danh sách category</h2>
               <div className="table-wrap"><table><thead><tr><th>Nhóm</th><th>Tên</th><th>Màu</th><th>Mặc định</th><th>Thao tác</th></tr></thead><tbody>
                 {categories.map((category) => (
                   <tr key={category.id}>
