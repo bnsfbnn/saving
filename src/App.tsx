@@ -1017,9 +1017,9 @@ function App() {
 
         {screen === 'fixed' ? (
           <section className="split-layout">
-            <div className="panel form-panel">
-              <div className="section-head">
-                <h2>{editingFixedExpenseId ? 'Sửa chi cố định' : 'Thêm chi cố định'}</h2>
+  <div className="panel form-panel fixed-form-panel">
+  <div className="section-head">
+  <h2>{editingFixedExpenseId ? 'Sửa chi cố định' : 'Thêm chi cố định'}</h2>
                 {editingFixedExpenseId ? <button className="ghost-button" onClick={resetFixedExpenseForm} type="button">Hủy sửa</button> : null}
               </div>
               <div className="form-grid two-cols">
@@ -1046,8 +1046,8 @@ function App() {
               <div className="form-actions"><button onClick={() => void saveFixedExpense()} type="button">{editingFixedExpenseId ? 'Cập nhật' : 'Lưu khoản chi'}</button></div>
             </div>
 
-            <div className="panel">
-              <div className="section-head"><h2>Danh sách chi cố định</h2><strong>{currency(monthlySummary.fixedExpense)}</strong></div>
+  <div className="panel fixed-list-panel">
+  <div className="section-head"><h2>Danh sách chi cố định</h2><strong>{currency(monthlySummary.fixedExpense)}</strong></div>
               <div className="list">
                 {fixedExpenses.filter((item) => item.profile_id === activeOwner).length === 0 ? <p className="empty-state">Chưa có khoản chi cố định.</p> : null}
                 {fixedExpenses.filter((item) => item.profile_id === activeOwner).map((item) => {
