@@ -758,18 +758,32 @@ function App() {
               </section>
             ) : null}
 
-            {/* Metrics: Thu / Chi / Còn lại theo tháng */}
+            {/* Metrics: monthly summary under account hero */}
             <section className="metrics-grid">
               <article className="metric-card income">
                 <span>Thu trong tháng</span>
                 <strong className="money-positive">{currency(monthlySummary.income)}</strong>
               </article>
               <article className="metric-card expense">
+                <span>Chi thường trong tháng</span>
+                <strong className="money-negative">-{currency(monthlySummary.variableExpense)}</strong>
+              </article>
+              <article className="metric-card expense">
+                <span>Chi cố định trong tháng</span>
+                <strong className="money-negative">-{currency(monthlySummary.fixedExpense)}</strong>
+              </article>
+              <article className="metric-card expense">
                 <span>Chi trong tháng</span>
-                <strong className="money-negative">{currency(monthlySummary.totalExpense)}</strong>
+                <strong className="money-negative">-{currency(monthlySummary.totalExpense)}</strong>
               </article>
               <article className="metric-card remaining">
-                <span>Còn lại tháng</span>
+                <span>Thu nhập ròng trong tháng</span>
+                <strong className={monthlySummary.income - monthlySummary.variableExpense - monthlySummary.fixedExpense >= 0 ? 'money-positive' : 'money-negative'}>
+                  {currency(monthlySummary.income - monthlySummary.variableExpense - monthlySummary.fixedExpense)}
+                </strong>
+              </article>
+              <article className="metric-card remaining">
+                <span>Tổng tiết kiệm cuối tháng</span>
                 <strong className={monthlySummary.remaining >= 0 ? 'money-positive' : 'money-negative'}>{currency(monthlySummary.remaining)}</strong>
               </article>
             </section>
@@ -850,19 +864,6 @@ function App() {
               </div>
             </section>
 
-            {/* Monthly Summary - chỉ thu chi tháng hiện tại */}
-            <section className="panel">
-              <div className="section-head">
-                <h2>📋 Tổng hợp {monthLabel(selectedMonth)}</h2>
-              </div>
-              <div className="summary-lines">
-                <div><span>Thu</span><strong className="money-positive">+{currency(monthlySummary.income)}</strong></div>
-                <div><span>Chi thường</span><strong className="money-negative">-{currency(monthlySummary.variableExpense)}</strong></div>
-                <div><span>Chi cố định</span><strong className="money-negative">-{currency(monthlySummary.fixedExpense)}</strong></div>
-                <div className="summary-total"><span>Thu nhập ròng trong tháng</span><strong>{currency(monthlySummary.income - monthlySummary.variableExpense - monthlySummary.fixedExpense)}</strong></div>
-              </div>
-            </section>
-
             {/* Budget history */}
             {monthlyBudgets.filter((b) => b.profile_id === activeOwner).length > 0 ? (
               <section className="panel wide-panel">
@@ -875,14 +876,6 @@ function App() {
               </section>
             ) : null}
 
-            {/* Recent transactions */}
-            <section className="panel">
-              <div className="section-head">
-                <h2>Giao dịch gần đây</h2>
-                <button className="ghost-button" onClick={() => setScreen('calendar')} type="button">Thêm thu/chi</button>
-              </div>
-              {renderTransactionList(recentOwnerTransactions)}
-            </section>
           </>
         ) : null}
 
