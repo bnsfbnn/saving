@@ -75,9 +75,8 @@ const fallbackAccountSettings: AccountSettings[] = [
   { profile_id: 'husband', opening_balance: 0, updated_at: new Date().toISOString() },
 ]
 
-const adminUsername = 'admin'
-const adminEmail = 'admin@saving.app'
-const adminPassword = 'admin123'
+const authCode = '88269'
+const authStorageKey = 'saving-app-authenticated'
 
 const emptyCategoryDraft: CategoryDraft = {
   name: '',
@@ -117,15 +116,14 @@ function parseAmount(value: string) {
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.sessionStorage.getItem(authStorageKey) === 'true'
+  })
   const [authInput, setAuthInput] = useState('')
-  const [authPassword, setAuthPassword] = useState('')
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [authError, setAuthError] = useState('')
-  const [authSubmitting, setAuthSubmitting] = useState(false)
   const [screen, setScreen] = useState<Screen>('dashboard')
-  const [activeOwner, setActiveOwner] = useState('wife')
-  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [activeOwner, setActiveOwner] = useState('default')
   const [selectedMonth, setSelectedMonth] = useState(monthStartISO())
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -144,14 +142,13 @@ function App() {
   const [editingCategoryId, setEditingCategoryId] = useState('')
   const [fixedDraft, setFixedDraft] = useState<FixedExpenseDraft>(() => createFixedExpenseDraft())
   const [editingFixedExpenseId, setEditingFixedExpenseId] = useState('')
-  const [showProfileForm, setShowProfileForm] = useState(false)
-  const [showProfileManager, setShowProfileManager] = useState(false)
-  const [profileFormName, setProfileFormName] = useState('')
-  const [profileFormColor, setProfileFormColor] = useState<string>(colorOptions[0].hex)
-  const [editingProfileId, setEditingProfileId] = useState('')
 
-  const defaultProfile: Profile = { id: 'wife', name: 'Vợ', color: '#db2777', accent: '#db2777', soft_accent: '#fce7f3', created_at: '' }
-  const activeProfile = profiles.find((profile) => profile.id === activeOwner) ?? profiles[0] ?? defaultProfile
+  const defaultProfile: Profile = { id: 'default', name: 'Default', color: '#2563eb', accent: '#2563eb', soft_accent: '#dbeafe', created_at: '' }
+  const [profiles, setProfiles] = useState<Profile[]>([defaultProfile])
+  const activeProfile = useMemo(
+    () => profiles.find((profile) => profile.id === activeOwner) ?? defaultProfile,
+    [activeOwner, profiles],
+  )
 
   const categoryLookup = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories])
   const incomeCategories = useMemo(() => categories.filter((category) => category.kind === 'income'), [categories])
@@ -225,20 +222,6 @@ function App() {
   )
 
   useEffect(() => {
-    if (!supabase) return
-
-    void supabase.auth.getSession().then(({ data }) => {
-      setIsAuthenticated(Boolean(data.session))
-    })
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(Boolean(session))
-    })
-
-    return () => listener.subscription.unsubscribe()
-  }, [])
-
-  useEffect(() => {
     if (!isAuthenticated) return
     void refreshData()
   }, [isAuthenticated])
@@ -272,50 +255,22 @@ function App() {
     setFixedExpenses(result.data.fixedExpenses)
     setFixedExpenseOverrides(result.data.fixedExpenseOverrides)
     setMonthlyBudgets(result.data.monthlyBudgets)
-    setActiveOwner((current) => {
-      if (result.data.profiles.length === 0) return defaultProfile.id
-      return result.data.profiles.some((profile) => profile.id === current) ? current : result.data.profiles[0].id
-    })
+    setActiveOwner(result.data.profileId)
     setMessage(result.message)
     setLoading(false)
   }
 
-  async function unlockApp(event: FormEvent<HTMLFormElement>) {
+  function unlockApp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!supabase) {
-      setAuthError('Chưa cấu hình Supabase Auth.')
-      return
-    }
-    if (authInput.trim() !== adminUsername) {
-      setAuthError('Username hoặc mật khẩu không đúng.')
-      return
-    }
-    if (authPassword.length < 6) {
-      setAuthError('Mật khẩu phải có ít nhất 6 ký tự.')
-      return
-    }
-
-    setAuthSubmitting(true)
-    setAuthError('')
-    const result = authMode === 'login'
-      ? await supabase.auth.signInWithPassword({ email: adminEmail, password: authPassword })
-      : await supabase.auth.signUp({
-          email: adminEmail,
-          password: authPassword,
-          options: { data: { username: adminUsername, is_admin: true } },
-        })
-
-    if (result.error) {
-      setAuthError(authMode === 'login' ? 'Username hoặc mật khẩu không đúng.' : 'Không thể tạo tài khoản. Hãy thử lại.')
-    } else if (authMode === 'register' && !result.data.session) {
-      setAuthError('Tài khoản đã tạo. Hãy xác nhận email trước khi đăng nhập.')
-      setAuthMode('login')
-    } else {
-      setIsAuthenticated(true)
+    if (authInput.trim() !== authCode) {
+      setAuthError('Mã authen không đúng.')
       setAuthInput('')
-      setAuthPassword('')
+      return
     }
-    setAuthSubmitting(false)
+
+    window.sessionStorage.setItem(authStorageKey, 'true')
+    setAuthError('')
+    setIsAuthenticated(true)
   }
 
   function resetTransactionForm(date = todayISO()) {
@@ -563,82 +518,6 @@ function App() {
     setMessage('Đã xóa khoản chi cố định.')
   }
 
-  async function saveProfile() {
-    const name = profileFormName.trim()
-    if (!name) return setMessage('Tên profile không được để trống.')
-    if (!supabase) return setMessage('Chưa cấu hình Supabase nên chưa thể lưu.')
-
-    const profileId = editingProfileId || name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now()
-
-    if (editingProfileId) {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ name, color: profileFormColor, accent: profileFormColor })
-        .eq('id', editingProfileId)
-        .select('*')
-        .single()
-
-      if (error) return setMessage(error.message)
-      setProfiles((current) => current.map((p) => (p.id === editingProfileId ? (data as Profile) : p)))
-      setShowProfileForm(false)
-      setProfileFormName('')
-      setProfileFormColor(colorOptions[0].hex)
-      setEditingProfileId('')
-      return setMessage('Đã cập nhật profile.')
-    }
-
-    const selectedColor = colorOptions.find((color) => color.hex === profileFormColor)
-    const softAccent = selectedColor?.soft ?? '#f3f4f6'
-    const { data, error } = await supabase
-      .from('profiles')
-      .insert({ id: profileId, name, color: profileFormColor, accent: profileFormColor, soft_accent: softAccent })
-      .select('*')
-      .single()
-
-    if (error) return setMessage(error.message)
-    const saved = data as Profile
-    setProfiles((current) => [...current, saved])
-
-    // Tạo account_settings cho profile mới
-    await supabase.from('account_settings').upsert({ profile_id: profileId, opening_balance: 0 }, { onConflict: 'profile_id' })
-
-    setActiveOwner(profileId)
-    setShowProfileForm(false)
-    setProfileFormName('')
-    setProfileFormColor(colorOptions[0].hex)
-    setMessage(`Đã tạo profile "${name}".`)
-  }
-
-  async function removeProfile(id: string) {
-    if (!supabase) return setMessage('Chưa cấu hình Supabase nên chưa thể xóa.')
-    if (profiles.length <= 1) return setMessage('Phải còn ít nhất 1 profile.')
-
-    const remaining = profiles.filter((profile) => profile.id !== id)
-    const cleanup = await Promise.all([
-      supabase.from('account_settings').delete().eq('profile_id', id),
-      supabase.from('transactions').delete().eq('profile_id', id),
-      supabase.from('fixed_expenses').delete().eq('profile_id', id),
-      supabase.from('monthly_budgets').delete().eq('profile_id', id),
-    ])
-
-    const cleanupError = cleanup.find((result) => result.error)
-    if (cleanupError?.error) return setMessage(cleanupError.error.message)
-
-    const { error } = await supabase.from('profiles').delete().eq('id', id)
-    if (error) return setMessage(error.message)
-
-    setProfiles(remaining)
-    setAccountSettings((current) => current.filter((item) => item.profile_id !== id))
-    setTransactions((current) => current.filter((item) => item.profile_id !== id))
-    setFixedExpenses((current) => current.filter((item) => item.profile_id !== id))
-    setMonthlyBudgets((current) => current.filter((item) => item.profile_id !== id))
-
-    if (activeOwner === id) {
-      setActiveOwner(remaining[0]?.id ?? defaultProfile.id)
-    }
-    setMessage('Đã xóa profile.')
-  }
-
   function renderMonthPicker() {
     return (
       <div className="month-picker">
@@ -744,34 +623,22 @@ function App() {
         <form className="auth-card" onSubmit={unlockApp}>
           <div className="auth-brand">
             <span>Saving</span>
-            <h1>{authMode === 'login' ? 'Đăng nhập quản lý' : 'Tạo tài khoản quản lý'}</h1>
+            <h1>Nhập mã truy cập</h1>
           </div>
           <label>
-            Username
+            Mã authen
             <input
-              autoComplete="username"
+              autoComplete="one-time-code"
               autoFocus
-              type="text"
+              inputMode="numeric"
+              maxLength={5}
+              type="password"
               value={authInput}
               onChange={(event) => setAuthInput(event.target.value)}
             />
           </label>
-          <label>
-            Mật khẩu
-            <input
-              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-              minLength={6}
-              type="password"
-              value={authPassword}
-              onChange={(event) => setAuthPassword(event.target.value)}
-            />
-          </label>
           {authError ? <p className="auth-error" role="alert">{authError}</p> : null}
-          <button disabled={authSubmitting} type="submit">{authSubmitting ? 'Đang xử lý...' : authMode === 'login' ? 'Đăng nhập' : 'Đăng ký'}</button>
-          <button className="auth-switch" type="button" onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError('') }}>
-            {authMode === 'login' ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'}
-          </button>
-          <p className="auth-hint">Tài khoản quản trị mặc định: admin / admin123</p>
+          <button type="submit">Vào app</button>
         </form>
       </main>
     )
@@ -812,18 +679,12 @@ function App() {
           <strong>Quản lý thu chi</strong>
         </div>
 
-        <div className="profile-switcher" aria-label="Chọn profile">
+        <div className="profile-switcher" aria-label="Tài khoản hiện tại">
           <div className="profile-dropdown-row">
-            <select
-              className="profile-dropdown"
-              value={activeOwner}
-              onChange={(event) => { setActiveOwner(event.target.value); setSidebarOpen(false); }}
-            >
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>{profile.name}</option>
-              ))}
-            </select>
-            <button className="ghost-button small" onClick={() => setShowProfileManager(true)} type="button" title="Quản lý profile">⚙️</button>
+            <div className="profile-summary">
+              <span className="profile-dot" style={{ backgroundColor: activeProfile.color }} />
+              <strong>{activeProfile.name}</strong>
+            </div>
           </div>
         </div>
 
@@ -1147,63 +1008,6 @@ function App() {
               </tbody></table></div>
             </div>
           </section>
-        ) : null}
-
-        {/* Profile Manager Modal */}
-        {showProfileManager ? (
-          <div className="modal-overlay" onClick={() => { setShowProfileManager(false); setShowProfileForm(false); setEditingProfileId(''); }}>
-            <div className="modal-card profile-manager" onClick={(e) => e.stopPropagation()}>
-              <div className="section-head">
-                <h2>👤 Quản lý profile</h2>
-                <button className="ghost-button" onClick={() => { setShowProfileManager(false); setShowProfileForm(false); setEditingProfileId(''); }} type="button">Đóng</button>
-              </div>
-
-              {/* Form tạo/sửa profile */}
-              {showProfileForm ? (
-                <div className="profile-form-section">
-                  <div className="form-grid two-cols">
-                    <label>
-                      Tên profile
-                      <input value={profileFormName} onChange={(event) => setProfileFormName(event.target.value)} placeholder="Ví dụ: Mẹ, Bố, Con..." />
-                    </label>
-                    <label>
-                      Màu
-                      <select value={profileFormColor} onChange={(event) => setProfileFormColor(event.target.value)}>
-                        {colorOptions.map((color) => <option key={color.hex} value={color.hex}>{color.name}</option>)}
-                      </select>
-                    </label>
-                  </div>
-                  <div className="profile-preview">
-                    <span className="profile-dot large" style={{ backgroundColor: profileFormColor }} />
-                    <strong>{profileFormName || 'Tên profile'}</strong>
-                  </div>
-                  <div className="form-actions">
-                    <button onClick={() => void saveProfile()} type="button">{editingProfileId ? 'Cập nhật' : 'Tạo profile'}</button>
-                    <button className="ghost-button" onClick={() => { setShowProfileForm(false); setEditingProfileId(''); }} type="button">Hủy</button>
-                  </div>
-                </div>
-              ) : (
-                <button className="create-profile-btn" onClick={() => { setShowProfileForm(true); setEditingProfileId(''); setProfileFormName(''); setProfileFormColor(colorOptions[0].hex); }} type="button">+ Tạo profile mới</button>
-              )}
-
-              {/* Danh sách profiles */}
-              <div className="profile-manager-list">
-                {profiles.map((profile) => (
-                  <div className={`profile-manager-row ${profile.id === activeOwner ? 'active' : ''}`} key={profile.id} onClick={() => { setActiveOwner(profile.id); setShowProfileManager(false); }}>
-                    <span className="profile-dot" style={{ backgroundColor: profile.color }} />
-                    <div className="profile-manager-info">
-                      <strong>{profile.name}</strong>
-                      <span>{profile.id === activeOwner ? 'Đang dùng' : ''}</span>
-                    </div>
-                    <div className="profile-manager-actions" onClick={(e) => e.stopPropagation()}>
-                      <button className="ghost-button tiny" onClick={() => { setEditingProfileId(profile.id); setProfileFormName(profile.name); setProfileFormColor(profile.color); setShowProfileForm(true); }} type="button">✏️</button>
-                      {profiles.length > 1 ? <button className="danger-button tiny" onClick={() => void removeProfile(profile.id)} type="button">🗑️</button> : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
         ) : null}
 
       </main>

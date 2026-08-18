@@ -1,23 +1,4 @@
-import type { CategoryDraft, CategoryKind, FixedFrequency, Profile } from '../types'
-
-export const defaultProfiles: Profile[] = [
-  {
-    id: 'wife',
-    name: 'Vợ',
-    color: '#db2777',
-    accent: '#db2777',
-    soft_accent: '#fce7f3',
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'husband',
-    name: 'Chồng',
-    color: '#2563eb',
-    accent: '#2563eb',
-    soft_accent: '#dbeafe',
-    created_at: new Date().toISOString(),
-  },
-]
+import type { CategoryDraft, CategoryKind, FixedFrequency } from '../types'
 
 export const categoryKindLabels: Record<CategoryKind, string> = {
   income: 'Thu',

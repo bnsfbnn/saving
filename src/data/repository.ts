@@ -1,9 +1,10 @@
 import { supabase } from '../lib/supabase'
 import type { AccountSettings, Category, FixedExpense, FixedExpenseOverride, MonthlyBudget, Profile, Transaction } from '../types'
-import { defaultCategories, defaultProfiles } from './defaults'
+import { defaultCategories } from './defaults'
 
 export type AppData = {
   profiles: Profile[]
+  profileId: string
   accountSettings: AccountSettings[]
   categories: Category[]
   transactions: Transaction[]
@@ -12,17 +13,27 @@ export type AppData = {
   monthlyBudgets: MonthlyBudget[]
 }
 
-const fallbackAccountSettings: AccountSettings[] = defaultProfiles.map((p) => ({
-  profile_id: p.id,
+const fallbackAccountSettings: AccountSettings[] = [{
+  profile_id: 'default',
   opening_balance: 0,
   updated_at: new Date().toISOString(),
-}))
+}]
+
+const fallbackProfile: Profile = {
+  id: 'default',
+  name: 'Default',
+  color: '#2563eb',
+  accent: '#2563eb',
+  soft_accent: '#dbeafe',
+  created_at: new Date().toISOString(),
+}
 
 export async function loadAppData(): Promise<{ data: AppData; message: string }> {
   if (!supabase) {
     return {
       data: {
-        profiles: defaultProfiles,
+        profiles: [fallbackProfile],
+        profileId: fallbackProfile.id,
         accountSettings: fallbackAccountSettings,
         categories: defaultCategories.map((category, index) => ({
           id: `default-${index}`,
@@ -40,7 +51,7 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
   }
 
   const [profilesRes, categoriesRes, transactionsRes, fixedExpensesRes, fixedExpenseOverridesRes, monthlyBudgetsRes, accountRes] = await Promise.all([
-    supabase.from('profiles').select('*').order('created_at', { ascending: true }),
+    supabase.from('profiles').select('*').order('created_at', { ascending: true }).maybeSingle(),
     supabase.from('categories').select('*').order('kind', { ascending: true }).order('name', { ascending: true }),
     supabase.from('transactions').select('*').order('occurred_on', { ascending: false }),
     supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false }),
@@ -53,7 +64,8 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
   if (firstError) {
     return {
       data: {
-        profiles: defaultProfiles,
+        profiles: [fallbackProfile],
+        profileId: fallbackProfile.id,
         accountSettings: fallbackAccountSettings,
         categories: [],
         transactions: [],
@@ -65,17 +77,12 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     }
   }
 
-  // Load profiles
-  let profiles = (profilesRes.data as Profile[]) ?? []
-  if (profiles.length === 0) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .insert(defaultProfiles.map((p) => ({ id: p.id, name: p.name, color: p.color, accent: p.accent, soft_accent: p.soft_accent })))
-      .select('*')
-      .order('created_at', { ascending: true })
-
-    if (!error) profiles = (data as Profile[]) ?? []
+  let profiles = (Array.isArray((profilesRes.data as Profile[] | null)) ? (profilesRes.data as Profile[]) : [])
+  if (!profiles.length && (profilesRes.data as Profile | null)) {
+    profiles = [profilesRes.data as Profile]
   }
+
+  const currentProfileId = profiles.length === 1 ? profiles[0].id : 'default'
 
   // Load categories
   let categories = (categoriesRes.data as Category[]) ?? []
@@ -90,61 +97,29 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     if (!error) categories = (data as Category[]) ?? []
   }
 
-  const validProfileIds = new Set(profiles.map((profile) => profile.id))
+  let accountSettings = ((accountRes.data as AccountSettings[]) ?? []).filter((item) => item.profile_id === currentProfileId || currentProfileId === 'default')
 
-  // Xóa dữ liệu "ghost" thuộc profile đã bị xóa hoặc không còn tồn tại trong bảng profiles.
-  const staleAccountSettings = ((accountRes.data as AccountSettings[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
-  const staleTransactions = ((transactionsRes.data as Transaction[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
-  const staleFixedExpenses = ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
-  const staleFixedExpenseOverrides = ((fixedExpenseOverridesRes.data as FixedExpenseOverride[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
-  const staleMonthlyBudgets = ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter((item) => !validProfileIds.has(item.profile_id))
-
-  if (staleAccountSettings.length > 0 || staleTransactions.length > 0 || staleFixedExpenses.length > 0 || staleFixedExpenseOverrides.length > 0 || staleMonthlyBudgets.length > 0) {
-    const staleProfileIds = new Set([
-      ...staleAccountSettings.map((item) => item.profile_id),
-      ...staleTransactions.map((item) => item.profile_id),
-      ...staleFixedExpenses.map((item) => item.profile_id),
-      ...staleFixedExpenseOverrides.map((item) => item.profile_id),
-      ...staleMonthlyBudgets.map((item) => item.profile_id),
-    ])
-
-    await Promise.all([
-      supabase.from('account_settings').delete().in('profile_id', [...staleProfileIds]),
-      supabase.from('transactions').delete().in('profile_id', [...staleProfileIds]),
-      supabase.from('fixed_expenses').delete().in('profile_id', [...staleProfileIds]),
-      supabase.from('fixed_expense_overrides').delete().in('profile_id', [...staleProfileIds]),
-      supabase.from('monthly_budgets').delete().in('profile_id', [...staleProfileIds]),
-    ])
-  }
-
-  // Load account settings - đảm bảo mỗi profile đều có
-  let accountSettings = ((accountRes.data as AccountSettings[]) ?? []).filter((item) => validProfileIds.has(item.profile_id))
-  const profileIds = profiles.map((p) => p.id)
-  const missingProfiles = profileIds.filter((id) => !accountSettings.some((s) => s.profile_id === id))
-
-  if (missingProfiles.length > 0) {
+  if (accountSettings.length === 0) {
     const { data } = await supabase
       .from('account_settings')
-      .upsert(
-        missingProfiles.map((profileId) => ({ profile_id: profileId, opening_balance: 0 })),
-        { onConflict: 'profile_id' },
-      )
+      .upsert({ profile_id: currentProfileId, opening_balance: 0 }, { onConflict: 'profile_id' })
       .select('*')
 
     if (data) {
-      accountSettings = [...accountSettings, ...(data as AccountSettings[])]
+      accountSettings = data as AccountSettings[]
     }
   }
 
   return {
     data: {
-      profiles,
+      profiles: profiles.length > 0 ? profiles : [fallbackProfile],
+      profileId: currentProfileId,
       accountSettings,
       categories,
-      transactions: ((transactionsRes.data as Transaction[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
-      fixedExpenses: ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
-      fixedExpenseOverrides: ((fixedExpenseOverridesRes.data as FixedExpenseOverride[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
-      monthlyBudgets: ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter((item) => validProfileIds.has(item.profile_id)),
+      transactions: ((transactionsRes.data as Transaction[]) ?? []).filter((item) => item.profile_id === currentProfileId || currentProfileId === 'default'),
+      fixedExpenses: ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter((item) => item.profile_id === currentProfileId || currentProfileId === 'default'),
+      fixedExpenseOverrides: ((fixedExpenseOverridesRes.data as FixedExpenseOverride[]) ?? []).filter((item) => item.profile_id === currentProfileId || currentProfileId === 'default'),
+      monthlyBudgets: ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter((item) => item.profile_id === currentProfileId || currentProfileId === 'default'),
     },
     message: '',
   }
