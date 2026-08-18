@@ -365,6 +365,8 @@ p { color: var(--muted); }
   .split-layout { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); align-items: start; }
   .fixed-list-panel { grid-column: 1; grid-row: 1; }
   .fixed-form-panel { grid-column: 2; grid-row: 1; }
+  .category-list-panel { grid-column: 1; grid-row: 1; }
+  .category-form-panel { grid-column: 2; grid-row: 1; }
 .calendar-layout { grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.65fr); align-items: start; }
 .side-stack { display: grid; gap: 16px; }
 .wide-panel { grid-column: 1 / -1; }
@@ -879,7 +881,9 @@ th { color: var(--muted); font-size: 0.86rem; }
   .dashboard-grid { grid-template-columns: 1fr; }
   .split-layout { grid-template-columns: 1fr; }
   .fixed-list-panel,
-  .fixed-form-panel { grid-column: auto; grid-row: auto; }
+  .fixed-form-panel,
+  .category-list-panel,
+  .category-form-panel { grid-column: auto; grid-row: auto; }
   .calendar-layout { grid-template-columns: 1fr; }
   .account-hero-card { padding: 18px 20px; }
 }
