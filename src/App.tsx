@@ -75,9 +75,8 @@ const fallbackAccountSettings: AccountSettings[] = [
   { profile_id: 'husband', opening_balance: 0, updated_at: new Date().toISOString() },
 ]
 
-const adminUsername = 'admin'
-const adminEmail = 'admin@saving.app'
-const adminPassword = 'admin123'
+const authCode = '88269'
+const authStorageKey = 'saving-app-authenticated'
 
 const emptyCategoryDraft: CategoryDraft = {
   name: '',
@@ -117,12 +116,12 @@ function parseAmount(value: string) {
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.sessionStorage.getItem(authStorageKey) === 'true'
+  })
   const [authInput, setAuthInput] = useState('')
-  const [authPassword, setAuthPassword] = useState('')
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [authError, setAuthError] = useState('')
-  const [authSubmitting, setAuthSubmitting] = useState(false)
   const [screen, setScreen] = useState<Screen>('dashboard')
   const [activeOwner, setActiveOwner] = useState('wife')
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -225,20 +224,6 @@ function App() {
   )
 
   useEffect(() => {
-    if (!supabase) return
-
-    void supabase.auth.getSession().then(({ data }) => {
-      setIsAuthenticated(Boolean(data.session))
-    })
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(Boolean(session))
-    })
-
-    return () => listener.subscription.unsubscribe()
-  }, [])
-
-  useEffect(() => {
     if (!isAuthenticated) return
     void refreshData()
   }, [isAuthenticated])
@@ -280,42 +265,17 @@ function App() {
     setLoading(false)
   }
 
-  async function unlockApp(event: FormEvent<HTMLFormElement>) {
+  function unlockApp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!supabase) {
-      setAuthError('Chưa cấu hình Supabase Auth.')
-      return
-    }
-    if (authInput.trim() !== adminUsername) {
-      setAuthError('Username hoặc mật khẩu không đúng.')
-      return
-    }
-    if (authPassword.length < 6) {
-      setAuthError('Mật khẩu phải có ít nhất 6 ký tự.')
-      return
-    }
-
-    setAuthSubmitting(true)
-    setAuthError('')
-    const result = authMode === 'login'
-      ? await supabase.auth.signInWithPassword({ email: adminEmail, password: authPassword })
-      : await supabase.auth.signUp({
-          email: adminEmail,
-          password: authPassword,
-          options: { data: { username: adminUsername, is_admin: true } },
-        })
-
-    if (result.error) {
-      setAuthError(authMode === 'login' ? 'Username hoặc mật khẩu không đúng.' : 'Không thể tạo tài khoản. Hãy thử lại.')
-    } else if (authMode === 'register' && !result.data.session) {
-      setAuthError('Tài khoản đã tạo. Hãy xác nhận email trước khi đăng nhập.')
-      setAuthMode('login')
-    } else {
-      setIsAuthenticated(true)
+    if (authInput.trim() !== authCode) {
+      setAuthError('Mã authen không đúng.')
       setAuthInput('')
-      setAuthPassword('')
+      return
     }
-    setAuthSubmitting(false)
+
+    window.sessionStorage.setItem(authStorageKey, 'true')
+    setAuthError('')
+    setIsAuthenticated(true)
   }
 
   function resetTransactionForm(date = todayISO()) {
@@ -744,34 +704,22 @@ function App() {
         <form className="auth-card" onSubmit={unlockApp}>
           <div className="auth-brand">
             <span>Saving</span>
-            <h1>{authMode === 'login' ? 'Đăng nhập quản lý' : 'Tạo tài khoản quản lý'}</h1>
+            <h1>Nhập mã truy cập</h1>
           </div>
           <label>
-            Username
+            Mã authen
             <input
-              autoComplete="username"
+              autoComplete="one-time-code"
               autoFocus
-              type="text"
+              inputMode="numeric"
+              maxLength={5}
+              type="password"
               value={authInput}
               onChange={(event) => setAuthInput(event.target.value)}
             />
           </label>
-          <label>
-            Mật khẩu
-            <input
-              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-              minLength={6}
-              type="password"
-              value={authPassword}
-              onChange={(event) => setAuthPassword(event.target.value)}
-            />
-          </label>
           {authError ? <p className="auth-error" role="alert">{authError}</p> : null}
-          <button disabled={authSubmitting} type="submit">{authSubmitting ? 'Đang xử lý...' : authMode === 'login' ? 'Đăng nhập' : 'Đăng ký'}</button>
-          <button className="auth-switch" type="button" onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError('') }}>
-            {authMode === 'login' ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'}
-          </button>
-          <p className="auth-hint">Tài khoản quản trị mặc định: admin / admin123</p>
+          <button type="submit">Vào app</button>
         </form>
       </main>
     )
