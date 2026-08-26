@@ -76,19 +76,16 @@ npm run build
 
 ## Supabase migrations
 
-Thư mục `supabase/migrations/` gồm 2 file:
+Thư mục `supabase/` gồm 3 file:
 
 | File | Dùng khi nào |
 |---|---|
-| `20260825000000_baseline.sql` | Database **mới** (fresh). Tạo toàn bộ schema + RLS + seed. |
-| `20260825000001_hardening.sql` | Database **đang chạy** (đã có dữ liệu). Idempotent: bật RLS, thêm index, bỏ FK cứng, seed thêm nếu thiếu. Không mất dữ liệu. |
+| `migrations/20260825000000_baseline.sql` | Database **mới** (fresh). Tạo toàn bộ schema + RLS + seed. |
+| `migrations/20260825000001_hardening.sql` | Database **đang chạy**, chỉ cần vá nhẹ: bật RLS, thêm index, bỏ FK cứng, seed thêm nếu thiếu. Không mất dữ liệu. |
+| `rebuild_database.sql` | Database **đang chạy**, muốn dọn sạch hoàn toàn về chuẩn baseline mà **không mất dữ liệu**. Chạy trong 1 transaction: snapshot → drop → tạo lại schema chuẩn → restore data → kiểm đếm row count. Lệch số dòng là tự rollback, data an toàn. |
 
-### Bảng
+### Cách chạy rebuild_database.sql
 
-- `profiles` — hồ sơ người dùng (vợ/chồng)
-- `categories` — danh mục thu/chi (3 nhóm)
-- `account_settings` — số dư khởi tạo theo profile
-- `transactions` — giao dịch thu/chi
-- `fixed_expenses` — khoản chi cố định (tuần/tháng)
-- `monthly_budgets` — ngân sách đầu tháng
-- `fixed_expense_overrides` — ghi đè số tiền chi cố định theo tháng
+1. Supabase Dashboard → Database → Backups → tạo backup (khuyến nghị).
+2. SQL Editor → paste toàn bộ `supabase/rebuild_database.sql` → Run.
+3. Xem kết quả: bảng báo cáo số dòng 7 bảng. Nếu thấy `Rebuild OK` là thành công; nếu lỗi thì transaction đã rollback, DB nguyên trạng cũ.

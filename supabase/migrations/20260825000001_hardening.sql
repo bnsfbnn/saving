@@ -15,28 +15,18 @@ alter table public.categories enable row level security;
 alter table public.account_settings enable row level security;
 alter table public.transactions enable row level security;
 alter table public.fixed_expenses enable row level security;
-alter table public.monthly_budgets enable row level security;
-alter table public.fixed_expense_overrides enable row level security;
 
 drop policy if exists "Allow all" on public.profiles;
 drop policy if exists "Allow all" on public.categories;
 drop policy if exists "Allow all" on public.account_settings;
 drop policy if exists "Allow all" on public.transactions;
 drop policy if exists "Allow all" on public.fixed_expenses;
-drop policy if exists "Allow all" on public.monthly_budgets;
-drop policy if exists "Allow all" on public.fixed_expense_overrides;
 
 create policy "Allow all" on public.profiles for all using (true) with check (true);
 create policy "Allow all" on public.categories for all using (true) with check (true);
 create policy "Allow all" on public.account_settings for all using (true) with check (true);
 create policy "Allow all" on public.transactions for all using (true) with check (true);
 create policy "Allow all" on public.fixed_expenses for all using (true) with check (true);
-create policy "Allow all" on public.monthly_budgets for all using (true) with check (true);
-create policy "Allow all" on public.fixed_expense_overrides for all using (true) with check (true);
-
--- ── 2. đưa fixed_expense_overrides về soft reference ────────────────────────
-alter table public.fixed_expense_overrides
-  drop constraint if exists fixed_expense_overrides_profile_id_fkey;
 
 -- ── 3. indexes còn thiếu ────────────────────────────────────────────────────
 create index if not exists categories_kind_idx on public.categories (kind, name);
@@ -44,9 +34,6 @@ create index if not exists transactions_profile_month_idx on public.transactions
 create index if not exists transactions_category_id_idx on public.transactions (category_id);
 create index if not exists fixed_expenses_profile_idx on public.fixed_expenses (profile_id, is_active);
 create index if not exists fixed_expenses_category_id_idx on public.fixed_expenses (category_id);
-create index if not exists monthly_budgets_profile_month_idx on public.monthly_budgets (profile_id, month_start desc);
-create index if not exists fixed_expense_overrides_profile_month_idx on public.fixed_expense_overrides (profile_id, month_start desc);
-create index if not exists fixed_expense_overrides_fixed_expense_idx on public.fixed_expense_overrides (fixed_expense_id, month_start desc);
 
 -- ── 4. seed data ────────────────────────────────────────────────────────────
 insert into public.profiles (id, name, color, accent, soft_accent) values

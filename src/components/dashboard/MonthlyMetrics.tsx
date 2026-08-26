@@ -26,13 +26,13 @@ export function MonthlyMetrics({ summary }: MonthlyMetricsProps) {
         <span>Chi trong tháng</span>
         <strong className="money-negative">-{currency(summary.totalExpense)}</strong>
       </article>
-      <article className="metric-card remaining">
+      <article className={`metric-card ${netIncome >= 0 ? 'income' : 'expense'}`}>
         <span>Thu nhập ròng trong tháng</span>
         <strong className={netIncome >= 0 ? 'money-positive' : 'money-negative'}>
           {currency(netIncome)}
         </strong>
       </article>
-      <article className="metric-card remaining">
+      <article className={`metric-card ${netIncome >= 0 ? 'income' : 'expense'}`}>
         <span>Tổng tiết kiệm cuối tháng</span>
         <strong className={summary.remaining >= 0 ? 'money-positive' : 'money-negative'}>{currency(summary.remaining)}</strong>
       </article>

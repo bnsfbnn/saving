@@ -50,26 +50,6 @@ export type FixedExpense = {
   created_at: string
 }
 
-export type FixedExpenseOverride = {
-  id: string
-  fixed_expense_id: string
-  profile_id: string
-  month_start: string
-  amount: number
-  is_active: boolean
-  note: string
-  created_at: string
-}
-
-export type MonthlyBudget = {
-  id: string
-  profile_id: string
-  month_start: string
-  starting_amount: number
-  note: string
-  created_at: string
-}
-
 export type AccountSettings = {
   profile_id: string
   opening_balance: number
