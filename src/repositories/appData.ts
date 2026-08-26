@@ -1,6 +1,14 @@
 import { supabase } from '../lib/supabase'
-import type { AccountSettings, Category, FixedExpense, FixedExpenseOverride, MonthlyBudget, Profile, Transaction } from '../types'
-import { defaultCategories } from './defaults'
+import type {
+  AccountSettings,
+  Category,
+  FixedExpense,
+  FixedExpenseOverride,
+  MonthlyBudget,
+  Profile,
+  Transaction,
+} from '../types'
+import { defaultCategories } from '../data/defaults'
 
 export type AppData = {
   profiles: Profile[]
@@ -13,11 +21,9 @@ export type AppData = {
   monthlyBudgets: MonthlyBudget[]
 }
 
-const fallbackAccountSettings: AccountSettings[] = [{
-  profile_id: 'default',
-  opening_balance: 0,
-  updated_at: new Date().toISOString(),
-}]
+const fallbackAccountSettings: AccountSettings[] = [
+  { profile_id: 'default', opening_balance: 0, updated_at: new Date().toISOString() },
+]
 
 const fallbackProfile: Profile = {
   id: 'default',
@@ -28,6 +34,7 @@ const fallbackProfile: Profile = {
   created_at: new Date().toISOString(),
 }
 
+/** Load all app data from Supabase. Falls back to defaults if not configured. */
 export async function loadAppData(): Promise<{ data: AppData; message: string }> {
   if (!supabase) {
     return {
@@ -50,7 +57,15 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     }
   }
 
-  const [profilesRes, categoriesRes, transactionsRes, fixedExpensesRes, fixedExpenseOverridesRes, monthlyBudgetsRes, accountRes] = await Promise.all([
+  const [
+    profilesRes,
+    categoriesRes,
+    transactionsRes,
+    fixedExpensesRes,
+    fixedExpenseOverridesRes,
+    monthlyBudgetsRes,
+    accountRes,
+  ] = await Promise.all([
     supabase.from('profiles').select('*').order('created_at', { ascending: true }).maybeSingle(),
     supabase.from('categories').select('*').order('kind', { ascending: true }).order('name', { ascending: true }),
     supabase.from('transactions').select('*').order('occurred_on', { ascending: false }),
@@ -60,7 +75,9 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     supabase.from('account_settings').select('*').order('profile_id', { ascending: true }),
   ])
 
-  const firstError = profilesRes.error ?? categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error ?? fixedExpenseOverridesRes.error ?? monthlyBudgetsRes.error ?? accountRes.error
+  const firstError =
+    profilesRes.error ?? categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error ?? fixedExpenseOverridesRes.error ?? monthlyBudgetsRes.error ?? accountRes.error
+
   if (firstError) {
     return {
       data: {
@@ -77,14 +94,14 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     }
   }
 
-  let profiles = (Array.isArray((profilesRes.data as Profile[] | null)) ? (profilesRes.data as Profile[]) : [])
+  let profiles = Array.isArray(profilesRes.data as Profile[] | null) ? (profilesRes.data as Profile[]) : []
   if (!profiles.length && (profilesRes.data as Profile | null)) {
     profiles = [profilesRes.data as Profile]
   }
 
   const currentProfileId = profiles.length === 1 ? profiles[0].id : 'default'
 
-  // Load categories
+  // Auto-seed categories if empty
   let categories = (categoriesRes.data as Category[]) ?? []
   if (categories.length === 0) {
     const { data, error } = await supabase
@@ -97,7 +114,10 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     if (!error) categories = (data as Category[]) ?? []
   }
 
-  let accountSettings = ((accountRes.data as AccountSettings[]) ?? []).filter((item) => item.profile_id === currentProfileId || currentProfileId === 'default')
+  // Auto-create account settings if missing
+  let accountSettings = ((accountRes.data as AccountSettings[]) ?? []).filter(
+    (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
+  )
 
   if (accountSettings.length === 0) {
     const { data } = await supabase
@@ -116,10 +136,18 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
       profileId: currentProfileId,
       accountSettings,
       categories,
-      transactions: ((transactionsRes.data as Transaction[]) ?? []).filter((item) => item.profile_id === currentProfileId || currentProfileId === 'default'),
-      fixedExpenses: ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter((item) => item.profile_id === currentProfileId || currentProfileId === 'default'),
-      fixedExpenseOverrides: ((fixedExpenseOverridesRes.data as FixedExpenseOverride[]) ?? []).filter((item) => item.profile_id === currentProfileId || currentProfileId === 'default'),
-      monthlyBudgets: ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter((item) => item.profile_id === currentProfileId || currentProfileId === 'default'),
+      transactions: ((transactionsRes.data as Transaction[]) ?? []).filter(
+        (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
+      ),
+      fixedExpenses: ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter(
+        (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
+      ),
+      fixedExpenseOverrides: ((fixedExpenseOverridesRes.data as FixedExpenseOverride[]) ?? []).filter(
+        (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
+      ),
+      monthlyBudgets: ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter(
+        (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
+      ),
     },
     message: '',
   }

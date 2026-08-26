@@ -1,3 +1,5 @@
+// ── Domain types ──────────────────────────────────────────────────────────────
+
 export type CategoryKind = 'income' | 'expense' | 'fixed_expense'
 export type TransactionType = 'income' | 'expense'
 export type FixedFrequency = 'weekly' | 'monthly'
@@ -74,4 +76,26 @@ export type AccountSettings = {
   updated_at: string
 }
 
+// ── Draft types (for forms) ───────────────────────────────────────────────────
+
+export type TransactionDraft = {
+  type: TransactionType
+  category_id: string
+  amount: string
+  occurred_on: string
+  note: string
+}
+
 export type CategoryDraft = Pick<Category, 'name' | 'kind' | 'color' | 'icon'>
+
+export type FixedExpenseDraft = {
+  name: string
+  category_id: string
+  amount: string
+  frequency: FixedFrequency
+  day_of_month: string
+  day_of_week: string
+  start_date: string
+  is_active: boolean
+  note: string
+}

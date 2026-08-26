@@ -1,10 +1,8 @@
 import type { Category, FixedExpense, FixedExpenseOverride, MonthlyBudget, Transaction } from '../types'
+import { daysInMonth, formatISODate, isInMonth, parseISODate } from './dates'
+import { sum } from './money'
 
-export type CalendarDay = {
-  iso: string
-  dayNumber: number
-  inMonth: boolean
-}
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export type FixedOccurrence = {
   fixedExpense: FixedExpense
@@ -29,78 +27,24 @@ export type CategoryBreakdown = {
   percent: number
 }
 
-export function currency(value: number) {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(value || 0)
-}
+// ── Queries ───────────────────────────────────────────────────────────────────
 
-export function todayISO() {
-  return formatISODate(new Date())
-}
-
-export function monthStartISO(value = todayISO()) {
-  return `${value.slice(0, 7)}-01`
-}
-
-export function monthInputValue(monthStart: string) {
-  return monthStart.slice(0, 7)
-}
-
-export function monthLabel(monthStart: string) {
-  return new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(parseISODate(monthStart))
-}
-
-export function parseISODate(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(year, month - 1, day)
-}
-
-export function formatISODate(value: Date) {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-export function daysInMonth(monthStart: string) {
-  const date = parseISODate(monthStart)
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-}
-
-export function isInMonth(date: string, monthStart: string) {
-  return date.slice(0, 7) === monthStart.slice(0, 7)
-}
-
-export function buildCalendarDays(monthStart: string): CalendarDay[] {
-  const start = parseISODate(monthStart)
-  const firstCalendarDate = new Date(start)
-  firstCalendarDate.setDate(start.getDate() - start.getDay())
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(firstCalendarDate)
-    date.setDate(firstCalendarDate.getDate() + index)
-    const iso = formatISODate(date)
-    return {
-      iso,
-      dayNumber: date.getDate(),
-      inMonth: isInMonth(iso, monthStart),
-    }
-  })
-}
-
-export function transactionsForProfileAndMonth(transactions: Transaction[], profileId: string, monthStart: string) {
+/** Get transactions for a profile within a given month. */
+export function transactionsForProfileAndMonth(
+  transactions: Transaction[],
+  profileId: string,
+  monthStart: string,
+): Transaction[] {
   return transactions.filter((item) => item.profile_id === profileId && isInMonth(item.occurred_on, monthStart))
 }
 
+/** Compute all fixed-expense occurrences for a profile in a given month. */
 export function fixedOccurrencesForMonth(
   fixedExpenses: FixedExpense[],
   profileId: string,
   monthStart: string,
   overrides: FixedExpenseOverride[] = [],
-) {
+): FixedOccurrence[] {
   const monthDate = parseISODate(monthStart)
   const lastDay = daysInMonth(monthStart)
   const occurrences: FixedOccurrence[] = []
@@ -152,6 +96,9 @@ export function fixedOccurrencesForMonth(
   return occurrences.sort((a, b) => a.date.localeCompare(b.date))
 }
 
+// ── Summaries ─────────────────────────────────────────────────────────────────
+
+/** Calculate the monthly financial summary for a profile. */
 export function calculateMonthlySummary(
   transactions: Transaction[],
   fixedExpenses: FixedExpense[],
@@ -178,6 +125,7 @@ export function calculateMonthlySummary(
   }
 }
 
+/** Build expense breakdown by category for a month. */
 export function buildCategoryBreakdown(
   categories: Category[],
   transactions: Transaction[],
@@ -213,8 +161,4 @@ export function buildCategoryBreakdown(
     })
     .filter((item): item is CategoryBreakdown => item !== null)
     .sort((a, b) => b.total - a.total)
-}
-
-export function sum(values: number[]) {
-  return values.reduce((total, value) => total + value, 0)
 }
