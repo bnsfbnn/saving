@@ -2,7 +2,6 @@ import { supabase } from '../lib/supabase'
 import type {
   Category,
   FixedExpense,
-  MonthlyBudget,
   Profile,
   Transaction,
 } from '../types'
@@ -14,7 +13,6 @@ export type AppData = {
   categories: Category[]
   transactions: Transaction[]
   fixedExpenses: FixedExpense[]
-  monthlyBudgets: MonthlyBudget[]
 }
 
 const fallbackProfile: Profile = {
@@ -42,7 +40,6 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
         })),
         transactions: [],
         fixedExpenses: [],
-        monthlyBudgets: [],
       },
       message: 'Chưa cấu hình Supabase. App đang hiển thị dữ liệu mặc định và chưa thể lưu.',
     }
@@ -53,17 +50,15 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     categoriesRes,
     transactionsRes,
     fixedExpensesRes,
-    monthlyBudgetsRes,
   ] = await Promise.all([
     supabase.from('profiles').select('*').order('created_at', { ascending: true }).maybeSingle(),
     supabase.from('categories').select('*').order('kind', { ascending: true }).order('name', { ascending: true }),
     supabase.from('transactions').select('*').order('occurred_on', { ascending: false }),
     supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false }),
-    supabase.from('monthly_budgets').select('*').order('month_start', { ascending: false }),
   ])
 
   const firstError =
-    profilesRes.error ?? categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error ?? monthlyBudgetsRes.error
+    profilesRes.error ?? categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error
 
   if (firstError) {
     return {
@@ -73,7 +68,6 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
         categories: [],
         transactions: [],
         fixedExpenses: [],
-        monthlyBudgets: [],
       },
       message: firstError.message,
     }
@@ -108,9 +102,6 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
         (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
       ),
       fixedExpenses: ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter(
-        (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
-      ),
-      monthlyBudgets: ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter(
         (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
       ),
     },

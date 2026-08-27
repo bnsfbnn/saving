@@ -51,15 +51,6 @@ export type FixedExpense = {
   created_at: string
 }
 
-export type MonthlyBudget = {
-  id: string
-  profile_id: string
-  month_start: string
-  starting_amount: number
-  note: string
-  created_at: string
-}
-
 // ── Draft types (for forms) ───────────────────────────────────────────────────
 
 export type TransactionDraft = {

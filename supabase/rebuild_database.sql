@@ -2,9 +2,9 @@
 -- REBUILD DATABASE — Don DB sach ma KHONG mat du lieu
 --
 -- Cach hoat dong (tat ca trong 1 TRANSACTION):
---   1. Snapshot toan bo 5 bang vao bang tam
+--   1. Snapshot toan bo 4 bang vao bang tam
 --   2. DROP het bang cu (kem constraint/index/policy cu)
---      + 2 bang chet (monthly_budgets, fixed_expense_overrides) duoc archive truoc khi DROP
+--      + bang chet (fixed_expense_overrides) duoc archive truoc khi DROP
 --   3. Tao lai schema CHUAN (giong baseline)
 --   4. Restore du lieu tu snapshot ve
 --   5. Kiem dem row count truoc/sau — neu lech -> RAISE EXCEPTION -> ROLLBACK
@@ -44,7 +44,6 @@ SELECT 'profiles'::text AS t, count(*) AS c FROM public.profiles
 UNION ALL SELECT 'categories',           count(*) FROM public.categories
 UNION ALL SELECT 'transactions',         count(*) FROM public.transactions
 UNION ALL SELECT 'fixed_expenses',       count(*) FROM public.fixed_expenses
-UNION ALL SELECT 'monthly_budgets',      count(*) FROM public.monthly_budgets;
 
 -- Buoc 1: Snapshot du lieu vao bang tam
 CREATE TEMP TABLE _bak_profiles AS
@@ -62,27 +61,36 @@ CREATE TEMP TABLE _bak_fixed_expenses AS
          day_of_month, day_of_week, start_date, is_active, note, created_at
   FROM public.fixed_expenses;
 
-CREATE TEMP TABLE _bak_monthly_budgets AS
-  SELECT id, profile_id, month_start, starting_amount, note, created_at
-  FROM public.monthly_budgets;
-
--- Snapshot bang chet (de archive, tranh mat du lieu neu co insert tay truoc day)
-CREATE TEMP TABLE _bak_fixed_expense_overrides AS
-  SELECT * FROM public.fixed_expense_overrides;
+-- Snapshot + archive cac bang chet (chi chay neu bang ton tai)
+DO $
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'fixed_expense_overrides') THEN
+    CREATE TEMP TABLE _bak_fixed_expense_overrides AS SELECT * FROM public.fixed_expense_overrides;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'monthly_budgets') THEN
+    CREATE TEMP TABLE _bak_monthly_budgets AS SELECT * FROM public.monthly_budgets;
+  END IF;
+END $;
 
 -- Buoc 2: DROP toan bo bang cu (con truoc, cha sau)
+DROP TABLE IF EXISTS public.fixed_expense_overrides CASCADE;
+DROP TABLE IF EXISTS public.monthly_budgets        CASCADE;
 DROP TABLE IF EXISTS public.fixed_expenses         CASCADE;
 DROP TABLE IF EXISTS public.transactions           CASCADE;
 DROP TABLE IF EXISTS public.categories             CASCADE;
 DROP TABLE IF EXISTS public.profiles               CASCADE;
 DROP TABLE IF EXISTS public.account_settings       CASCADE;
 
--- DROP bang chet fixed_expense_overrides (app khong con dung) + luu du lieu vao bang archive
-DROP TABLE IF EXISTS public.fixed_expense_overrides CASCADE;
-
--- Archive du lieu cua bang chet (de phong, co the DROP sau khi xac nhan app chay on)
-CREATE TABLE IF NOT EXISTS public._archive_fixed_expense_overrides AS
-  SELECT * FROM _bak_fixed_expense_overrides;
+-- Archive du lieu cua cac bang chet (de phong, co the DROP sau khi xac nhan app chay on)
+DO $
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = '_bak_fixed_expense_overrides' AND schemaname = 'pg_temp_1') THEN
+    CREATE TABLE IF NOT EXISTS public._archive_fixed_expense_overrides AS SELECT * FROM _bak_fixed_expense_overrides;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = '_bak_monthly_budgets' AND schemaname = 'pg_temp_1') THEN
+    CREATE TABLE IF NOT EXISTS public._archive_monthly_budgets AS SELECT * FROM _bak_monthly_budgets;
+  END IF;
+END $;
 
 -- Buoc 3: Tao lai schema CHUAN
 create extension if not exists pgcrypto;
@@ -139,35 +147,21 @@ create table public.fixed_expenses (
   )
 );
 
-create table public.monthly_budgets (
-  id uuid primary key default gen_random_uuid(),
-  profile_id text not null,
-  month_start date not null,
-  starting_amount numeric(14,2) not null default 0,
-  note text not null default '',
-  created_at timestamptz not null default now(),
-  unique (profile_id, month_start),
-  check (date_trunc('month', month_start)::date = month_start)
-);
-
 create index categories_kind_idx on public.categories (kind, name);
 create index transactions_profile_month_idx on public.transactions (profile_id, occurred_on desc);
 create index transactions_category_id_idx on public.transactions (category_id);
 create index fixed_expenses_profile_idx on public.fixed_expenses (profile_id, is_active);
 create index fixed_expenses_category_id_idx on public.fixed_expenses (category_id);
-create index monthly_budgets_profile_month_idx on public.monthly_budgets (profile_id, month_start desc);
 
 alter table public.profiles enable row level security;
 alter table public.categories enable row level security;
 alter table public.transactions enable row level security;
 alter table public.fixed_expenses enable row level security;
-alter table public.monthly_budgets enable row level security;
 
 create policy "Allow all" on public.profiles for all using (true) with check (true);
 create policy "Allow all" on public.categories for all using (true) with check (true);
 create policy "Allow all" on public.transactions for all using (true) with check (true);
 create policy "Allow all" on public.fixed_expenses for all using (true) with check (true);
-create policy "Allow all" on public.monthly_budgets for all using (true) with check (true);
 
 -- Buoc 4: Restore du lieu tu snapshot ve (giu nguyen ID goc)
 -- Thu tu: bang cha truoc, bang con sau (vi co FK)
@@ -183,9 +177,6 @@ SELECT id, profile_id, type, category_id, amount, occurred_on, note, created_at 
 
 INSERT INTO public.fixed_expenses (id, profile_id, category_id, name, amount, frequency, day_of_month, day_of_week, start_date, is_active, note, created_at)
 SELECT id, profile_id, category_id, name, amount, frequency, day_of_month, day_of_week, start_date, is_active, note, created_at FROM _bak_fixed_expenses;
-
-INSERT INTO public.monthly_budgets (id, profile_id, month_start, starting_amount, note, created_at)
-SELECT id, profile_id, month_start, starting_amount, note, created_at FROM _bak_monthly_budgets;
 
 -- Neu bang profiles/categories trong (DB chua co du lieu), nap mac dinh
 INSERT INTO public.profiles (id, name, color, accent, soft_accent)
@@ -227,7 +218,6 @@ BEGIN
       UNION ALL SELECT 'categories',           count(*) FROM public.categories
       UNION ALL SELECT 'transactions',         count(*) FROM public.transactions
       UNION ALL SELECT 'fixed_expenses',       count(*) FROM public.fixed_expenses
-      UNION ALL SELECT 'monthly_budgets',      count(*) FROM public.monthly_budgets
           ) a ON a.t = b.t
     WHERE b.c <> a.c
   LOOP
@@ -239,7 +229,7 @@ BEGIN
     RAISE EXCEPTION 'Rebuild ABORTED: row count mismatch detected. Transaction rolled back, data is SAFE.';
   END IF;
 
-  RAISE NOTICE 'Rebuild OK: all 5 tables match original row counts.';
+  RAISE NOTICE 'Rebuild OK: all 4 tables match original row counts.';
 END $$;
 
 COMMIT;

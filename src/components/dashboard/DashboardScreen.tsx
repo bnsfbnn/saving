@@ -4,7 +4,6 @@ import { AccountHeroCard } from './AccountHeroCard'
 import { MonthlyMetrics } from './MonthlyMetrics'
 import { CategoryBreakdownChart } from './CategoryBreakdownChart'
 import { FixedMonthPanel } from './FixedMonthPanel'
-import { BudgetHistoryTable } from './BudgetHistoryTable'
 
 type DashboardScreenProps = {
   data: FinanceData
@@ -27,7 +26,6 @@ export function DashboardScreen({ data }: DashboardScreenProps) {
     monthFixedOccurrences,
     categoryLookup,
     selectedMonth,
-    profileMonthlyBudgets,
   } = data
 
   return (
@@ -67,8 +65,6 @@ export function DashboardScreen({ data }: DashboardScreenProps) {
           categoryLookup={categoryLookup}
         />
       </section>
-
-      <BudgetHistoryTable budgets={profileMonthlyBudgets} />
     </>
   )
 }

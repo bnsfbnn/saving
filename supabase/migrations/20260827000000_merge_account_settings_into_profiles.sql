@@ -8,18 +8,6 @@
 
 BEGIN;
 
--- Buoc 0: Dam bao cac bang can thiet ton tai (tao neu thieu)
-CREATE TABLE IF NOT EXISTS public.monthly_budgets (
-  id uuid primary key default gen_random_uuid(),
-  profile_id text not null,
-  month_start date not null,
-  starting_amount numeric(14,2) not null default 0,
-  note text not null default '',
-  created_at timestamptz not null default now(),
-  unique (profile_id, month_start),
-  check (date_trunc('month', month_start)::date = month_start)
-);
-
 -- Buoc 1: Them cot opening_balance vao profiles
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS opening_balance numeric(14,2);
 
@@ -61,27 +49,25 @@ DELETE FROM public.profiles WHERE id IN ('wife', 'husband');
 -- Buoc 5: Xoa bang account_settings (neu co)
 DROP TABLE IF EXISTS public.account_settings;
 
--- Buoc 6: Xoa bang fixed_expense_overrides (neu co, app khong con dung)
+-- Buoc 6: Xoa bang khong con dung (neu co)
 DROP TABLE IF EXISTS public.fixed_expense_overrides;
+DROP TABLE IF EXISTS public.monthly_budgets;
 
 -- Buoc 7: RLS + policy
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fixed_expenses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.monthly_budgets ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow all" ON public.profiles;
 DROP POLICY IF EXISTS "Allow all" ON public.categories;
 DROP POLICY IF EXISTS "Allow all" ON public.transactions;
 DROP POLICY IF EXISTS "Allow all" ON public.fixed_expenses;
-DROP POLICY IF EXISTS "Allow all" ON public.monthly_budgets;
 
 CREATE POLICY "Allow all" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON public.categories FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON public.transactions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON public.fixed_expenses FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON public.monthly_budgets FOR ALL USING (true) WITH CHECK (true);
 
 -- Buoc 8: Index chuan
 CREATE INDEX IF NOT EXISTS categories_kind_idx ON public.categories (kind, name);
@@ -89,7 +75,6 @@ CREATE INDEX IF NOT EXISTS transactions_profile_month_idx ON public.transactions
 CREATE INDEX IF NOT EXISTS transactions_category_id_idx ON public.transactions (category_id);
 CREATE INDEX IF NOT EXISTS fixed_expenses_profile_idx ON public.fixed_expenses (profile_id, is_active);
 CREATE INDEX IF NOT EXISTS fixed_expenses_category_id_idx ON public.fixed_expenses (category_id);
-CREATE INDEX IF NOT EXISTS monthly_budgets_profile_month_idx ON public.monthly_budgets (profile_id, month_start DESC);
 
 COMMIT;
 
@@ -97,4 +82,3 @@ COMMIT;
 SELECT id, name, opening_balance FROM public.profiles;
 SELECT count(*) AS transactions FROM public.transactions;
 SELECT count(*) AS fixed_expenses FROM public.fixed_expenses;
-SELECT count(*) AS monthly_budgets FROM public.monthly_budgets;

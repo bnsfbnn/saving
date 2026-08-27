@@ -5,7 +5,6 @@ import type {
   CategoryKind,
   FixedExpense,
   FixedExpenseDraft,
-  MonthlyBudget,
   Profile,
   Screen,
   Transaction,
@@ -79,7 +78,6 @@ export function useFinanceData(isAuthenticated: boolean) {
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([])
-  const [monthlyBudgets, setMonthlyBudgets] = useState<MonthlyBudget[]>([])
 
   // Form state
   const [transactionDraft, setTransactionDraft] = useState<TransactionDraft>(() => createTransactionDraft())
@@ -100,11 +98,6 @@ export function useFinanceData(isAuthenticated: boolean) {
   const expenseCategories = useMemo(() => categories.filter((category) => category.kind === 'expense'), [categories])
   const fixedCategories = useMemo(() => categories.filter((category) => category.kind === 'fixed_expense'), [categories])
   const transactionCategoryOptions = transactionDraft.type === 'income' ? incomeCategories : expenseCategories
-
-  const activeMonthlyBudget = useMemo(
-    () => monthlyBudgets.find((budget) => budget.profile_id === activeOwner && budget.month_start === selectedMonth),
-    [activeOwner, monthlyBudgets, selectedMonth],
-  )
 
   // Chi hien input neu CHUA nhap so du ban dau (opening_balance con null)
   const hasOpeningBalance = activeProfile.opening_balance != null
@@ -135,13 +128,10 @@ export function useFinanceData(isAuthenticated: boolean) {
     return opening + totalIncome - totalVariableExpenseAllTime - totalFixedExpenseAllTime
   }, [activeOwner, activeProfile.opening_balance, totalFixedExpenseAllTime, totalVariableExpenseAllTime, transactions])
 
-  // So tien dau thang: uu tien gia tri nhap tay trong monthly_budgets,
-  // neu khong co thi tinh tu du lieu (so du cuoi thang truoc)
+  // So tien dau thang = so du cuoi thang truoc (tinh tu du lieu)
   const startingAmount = useMemo(
-    () =>
-      activeMonthlyBudget?.starting_amount ??
-      startingAmountForMonth(activeProfile.opening_balance ?? 0, transactions, fixedExpenses, activeOwner, selectedMonth),
-    [activeMonthlyBudget?.starting_amount, activeOwner, activeProfile.opening_balance, fixedExpenses, selectedMonth, transactions],
+    () => startingAmountForMonth(activeProfile.opening_balance ?? 0, transactions, fixedExpenses, activeOwner, selectedMonth),
+    [activeOwner, activeProfile.opening_balance, fixedExpenses, selectedMonth, transactions],
   )
 
   const monthlySummary = useMemo(
@@ -165,11 +155,6 @@ export function useFinanceData(isAuthenticated: boolean) {
   )
 
   const calendarDays = useMemo(() => buildCalendarDays(selectedMonth), [selectedMonth])
-
-  const profileMonthlyBudgets = useMemo(
-    () => monthlyBudgets.filter((budget) => budget.profile_id === activeOwner),
-    [activeOwner, monthlyBudgets],
-  )
 
   const profileFixedExpenses = useMemo(
     () => fixedExpenses.filter((item) => item.profile_id === activeOwner),
@@ -210,7 +195,6 @@ export function useFinanceData(isAuthenticated: boolean) {
     setCategories(result.data.categories)
     setTransactions(result.data.transactions)
     setFixedExpenses(result.data.fixedExpenses)
-    setMonthlyBudgets(result.data.monthlyBudgets)
     setActiveOwner(result.data.profileId)
     setMessage(result.message)
     setLoading(false)
@@ -446,7 +430,6 @@ export function useFinanceData(isAuthenticated: boolean) {
     fixedCategories,
     transactions,
     profileFixedExpenses,
-    profileMonthlyBudgets,
 
     // Derived
     mainBalance,

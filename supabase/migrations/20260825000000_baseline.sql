@@ -71,44 +71,28 @@ create table if not exists public.fixed_expenses (
   )
 );
 
--- ── monthly_budgets ─────────────────────────────────────────────────────────
-create table if not exists public.monthly_budgets (
-  id uuid primary key default gen_random_uuid(),
-  profile_id text not null,
-  month_start date not null,
-  starting_amount numeric(14,2) not null default 0,
-  note text not null default '',
-  created_at timestamptz not null default now(),
-  unique (profile_id, month_start),
-  check (date_trunc('month', month_start)::date = month_start)
-);
-
 -- ── indexes ─────────────────────────────────────────────────────────────────
 create index if not exists categories_kind_idx on public.categories (kind, name);
 create index if not exists transactions_profile_month_idx on public.transactions (profile_id, occurred_on desc);
 create index if not exists transactions_category_id_idx on public.transactions (category_id);
 create index if not exists fixed_expenses_profile_idx on public.fixed_expenses (profile_id, is_active);
 create index if not exists fixed_expenses_category_id_idx on public.fixed_expenses (category_id);
-create index if not exists monthly_budgets_profile_month_idx on public.monthly_budgets (profile_id, month_start desc);
 
 -- ── row level security ──────────────────────────────────────────────────────
 alter table public.profiles enable row level security;
 alter table public.categories enable row level security;
 alter table public.transactions enable row level security;
 alter table public.fixed_expenses enable row level security;
-alter table public.monthly_budgets enable row level security;
 
 drop policy if exists "Allow all" on public.profiles;
 drop policy if exists "Allow all" on public.categories;
 drop policy if exists "Allow all" on public.transactions;
 drop policy if exists "Allow all" on public.fixed_expenses;
-drop policy if exists "Allow all" on public.monthly_budgets;
 
 create policy "Allow all" on public.profiles for all using (true) with check (true);
 create policy "Allow all" on public.categories for all using (true) with check (true);
 create policy "Allow all" on public.transactions for all using (true) with check (true);
 create policy "Allow all" on public.fixed_expenses for all using (true) with check (true);
-create policy "Allow all" on public.monthly_budgets for all using (true) with check (true);
 
 -- ── seed data ───────────────────────────────────────────────────────────────
 insert into public.profiles (id, name, color, accent, soft_accent) values
