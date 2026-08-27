@@ -73,26 +73,30 @@ npm run dev
 npm run build
 ```
 
-## Supabase migrations
+## Supabase — deploy ứng dụng MỚI
 
-Thư mục `supabase/` gồm 4 file:
+Chỉ cần 1 file duy nhất: `supabase/migrations/20260825000000_baseline.sql`
 
-| File | Dùng khi nào |
-|---|---|
-| `migrations/20260825000000_baseline.sql` | Database **mới** (fresh). Tạo toàn bộ schema + RLS + seed. |
-| `migrations/20260827000000_merge_account_settings_into_profiles.sql` | Database **đang chạy**. Gộp `account_settings` vào `profiles`, xóa bảng thừa, bật RLS. |
-| `migrations/20260828000000_drop_monthly_budgets.sql` | Database **đang chạy**. Xóa bảng `monthly_budgets` (archive trước khi drop). |
-| `rebuild_database.sql` | Database **đang chạy**, muốn dọn sạch hoàn toàn về chuẩn baseline mà **không mất dữ liệu**. Tự xử lý mọi trạng thái DB. |
+### Cách chạy
 
-### Cách chạy rebuild_database.sql
+1. Tạo Supabase project mới.
+2. SQL Editor → paste toàn bộ `baseline.sql` → Run.
+   (Hoặc để Supabase tự chạy qua migrations nếu dùng CLI.)
+3. Xong. Mở app → hiện màn hình "Bắt đầu tiết kiệm" để nhập số dư ban đầu.
 
-1. Supabase Dashboard → Database → Backups → tạo backup (khuyến nghị).
-2. SQL Editor → paste toàn bộ `supabase/rebuild_database.sql` → Run.
-3. Xem kết quả: bảng báo cáo số dòng 4 bảng. Nếu thấy `Rebuild OK` là thành công; nếu lỗi thì transaction đã rollback, DB nguyên trạng cũ.
+### Vì sao opening account "sạch sẽ"
 
-### Bảng
+- Profile `default` được seed với `opening_balance = NULL`.
+- `NULL` = tài khoản chưa khởi tạo → app hiện form nhập số dư lần đầu.
+- Sau khi nhập, `opening_balance` được lưu và dashboard hiện hero card.
+
+### Bảng (4 bảng)
 
 - `profiles` — hồ sơ người dùng + số dư khởi tạo (`opening_balance`)
 - `categories` — danh mục thu/chi (3 nhóm)
 - `transactions` — giao dịch thu/chi
 - `fixed_expenses` — khoản chi cố định (tuần/tháng)
+
+## Công cụ cho DB ĐANG CHẠY (không dùng khi deploy mới)
+
+`supabase/rebuild_database.sql` — dọn DB cũ về chuẩn baseline mà không mất dữ liệu. Chỉ dùng khi bạn có DB cũ muốn làm sạch.

@@ -3,7 +3,6 @@ import { AccountInitPanel } from './AccountInitPanel'
 import { AccountHeroCard } from './AccountHeroCard'
 import { MonthlyMetrics } from './MonthlyMetrics'
 import { CategoryBreakdownChart } from './CategoryBreakdownChart'
-import { FixedMonthPanel } from './FixedMonthPanel'
 
 type DashboardScreenProps = {
   data: FinanceData
@@ -57,12 +56,6 @@ export function DashboardScreen({ data }: DashboardScreenProps) {
           breakdown={categoryBreakdown}
           totalExpense={monthlySummary.totalExpense}
           selectedMonth={selectedMonth}
-        />
-
-        <FixedMonthPanel
-          occurrences={monthFixedOccurrences}
-          fixedExpenseTotal={monthlySummary.fixedExpense}
-          categoryLookup={categoryLookup}
         />
       </section>
     </>

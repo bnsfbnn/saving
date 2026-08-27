@@ -1,21 +1,23 @@
 -- ============================================================================
 -- BASELINE SCHEMA — Saving App
--- Consolidates all previous migrations into a single clean schema.
--- Use this for a FRESH database. For an existing database, run
--- 20260825000001_hardening.sql instead.
+-- Schema duy nhat cho DATABASE MOI. Chay 1 lan trong Supabase SQL Editor
+-- (hoac de Supabase tu chay qua migrations) khi deploy ung dung moi.
 --
--- Conventions:
+-- Quy uoc:
 --   * snake_case identifiers
---   * uuid PKs via gen_random_uuid() (except profiles/account_settings)
+--   * uuid PK via gen_random_uuid() (tru profiles dung text PK)
 --   * timestamptz created_at default now()
---   * RLS enabled on every table with an allow-all policy (single-user app)
---   * profile_id is a soft reference (no FK): the app may use 'default'
---     when no profile row matches, so a hard FK would break inserts.
+--   * RLS bat tren moi bang kem policy "Allow all" (app single-user)
+--   * profile_id la soft reference (khong FK): app co the dung 'default'
+--   * opening_balance NULL = tai khoan chua khoi tao -> app hien man hinh
+--     "Bat dau tiet kiem" de nhap so du ban dau
 -- ============================================================================
 
 create extension if not exists pgcrypto;
 
 -- ── profiles ────────────────────────────────────────────────────────────────
+-- Ho so nguoi dung + so du khoi tao (opening_balance).
+-- opening_balance de NULL: app se hien form nhap so du lan dau.
 create table if not exists public.profiles (
   id text primary key,
   name text not null,
@@ -95,6 +97,8 @@ create policy "Allow all" on public.transactions for all using (true) with check
 create policy "Allow all" on public.fixed_expenses for all using (true) with check (true);
 
 -- ── seed data ───────────────────────────────────────────────────────────────
+-- Profile 'default' voi opening_balance NULL -> lan dau mo app se hien
+-- man hinh "Bat dau tiet kiem" de nhap so du ban dau.
 insert into public.profiles (id, name, color, accent, soft_accent) values
   ('default', 'Default', '#2563eb', '#2563eb', '#dbeafe')
 on conflict (id) do nothing;

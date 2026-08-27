@@ -10,9 +10,9 @@ export function MonthlyMetrics({ summary }: MonthlyMetricsProps) {
 
   return (
     <section className="metrics-grid">
-      <article className="metric-card income">
-        <span>Thu trong tháng</span>
-        <strong className="money-positive">{currency(summary.income)}</strong>
+      <article className="metric-card expense">
+        <span>Chi trong tháng</span>
+        <strong className="money-negative">-{currency(summary.totalExpense)}</strong>
       </article>
       <article className="metric-card expense">
         <span>Chi thường trong tháng</span>
@@ -22,9 +22,9 @@ export function MonthlyMetrics({ summary }: MonthlyMetricsProps) {
         <span>Chi cố định trong tháng</span>
         <strong className="money-negative">-{currency(summary.fixedExpense)}</strong>
       </article>
-      <article className="metric-card expense">
-        <span>Chi trong tháng</span>
-        <strong className="money-negative">-{currency(summary.totalExpense)}</strong>
+      <article className="metric-card income">
+        <span>Thu trong tháng</span>
+        <strong className="money-positive">{currency(summary.income)}</strong>
       </article>
       <article className={`metric-card ${netIncome >= 0 ? 'income' : 'expense'}`}>
         <span>Thu nhập ròng trong tháng</span>

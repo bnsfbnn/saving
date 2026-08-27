@@ -361,7 +361,7 @@ p { color: var(--muted); }
 }
 
 .metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.dashboard-grid { grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr); }
+.dashboard-grid { grid-template-columns: 1fr; }
   .split-layout { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); align-items: start; }
   .fixed-list-panel { grid-column: 1; grid-row: 1; }
   .fixed-form-panel { grid-column: 2; grid-row: 1; }
