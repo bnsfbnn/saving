@@ -30,7 +30,7 @@ DROP TABLE IF EXISTS public.monthly_budgets CASCADE;
 COMMIT;
 
 -- Kiem tra ket qua (an toan neu bang archive khong ton tai)
-DO $
+DO $$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.tables
@@ -40,4 +40,4 @@ BEGIN
   ELSE
     RAISE NOTICE 'monthly_budgets did not exist - nothing to archive.';
   END IF;
-END $;
+END $$;

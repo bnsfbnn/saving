@@ -23,7 +23,7 @@ BEGIN;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS opening_balance numeric(14,2);
 
 -- Copy opening_balance tu account_settings sang profiles (neu bang account_settings con ton tai)
-DO $
+DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'account_settings') THEN
     UPDATE public.profiles p
@@ -36,14 +36,14 @@ BEGIN
     WHERE p.id = 'default' AND p.opening_balance IS NULL
       AND EXISTS (SELECT 1 FROM public.account_settings);
   END IF;
-END $;
+END $$;
 
 -- Buoc 0: Ghi nhan so dong TRUOC khi rebuild (de doi chieu)
 CREATE TEMP TABLE _before_counts AS
 SELECT 'profiles'::text AS t, count(*) AS c FROM public.profiles
 UNION ALL SELECT 'categories',           count(*) FROM public.categories
 UNION ALL SELECT 'transactions',         count(*) FROM public.transactions
-UNION ALL SELECT 'fixed_expenses',       count(*) FROM public.fixed_expenses
+UNION ALL SELECT 'fixed_expenses',       count(*) FROM public.fixed_expenses;
 
 -- Buoc 1: Snapshot du lieu vao bang tam
 CREATE TEMP TABLE _bak_profiles AS
@@ -62,7 +62,7 @@ CREATE TEMP TABLE _bak_fixed_expenses AS
   FROM public.fixed_expenses;
 
 -- Snapshot + archive cac bang chet (chi chay neu bang ton tai)
-DO $
+DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'fixed_expense_overrides') THEN
     CREATE TEMP TABLE _bak_fixed_expense_overrides AS SELECT * FROM public.fixed_expense_overrides;
@@ -70,7 +70,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'monthly_budgets') THEN
     CREATE TEMP TABLE _bak_monthly_budgets AS SELECT * FROM public.monthly_budgets;
   END IF;
-END $;
+END $$;
 
 -- Buoc 2: DROP toan bo bang cu (con truoc, cha sau)
 DROP TABLE IF EXISTS public.fixed_expense_overrides CASCADE;
@@ -82,7 +82,7 @@ DROP TABLE IF EXISTS public.profiles               CASCADE;
 DROP TABLE IF EXISTS public.account_settings       CASCADE;
 
 -- Archive du lieu cua cac bang chet (de phong, co the DROP sau khi xac nhan app chay on)
-DO $
+DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = '_bak_fixed_expense_overrides' AND schemaname = 'pg_temp_1') THEN
     CREATE TABLE IF NOT EXISTS public._archive_fixed_expense_overrides AS SELECT * FROM _bak_fixed_expense_overrides;
@@ -90,7 +90,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = '_bak_monthly_budgets' AND schemaname = 'pg_temp_1') THEN
     CREATE TABLE IF NOT EXISTS public._archive_monthly_budgets AS SELECT * FROM _bak_monthly_budgets;
   END IF;
-END $;
+END $$;
 
 -- Buoc 3: Tao lai schema CHUAN
 create extension if not exists pgcrypto;
