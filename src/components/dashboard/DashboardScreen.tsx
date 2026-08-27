@@ -4,6 +4,7 @@ import { AccountHeroCard } from './AccountHeroCard'
 import { MonthlyMetrics } from './MonthlyMetrics'
 import { CategoryBreakdownChart } from './CategoryBreakdownChart'
 import { FixedMonthPanel } from './FixedMonthPanel'
+import { BudgetHistoryTable } from './BudgetHistoryTable'
 
 type DashboardScreenProps = {
   data: FinanceData
@@ -12,12 +13,11 @@ type DashboardScreenProps = {
 export function DashboardScreen({ data }: DashboardScreenProps) {
   const {
     loading,
-    hasAccountSettings,
+    hasOpeningBalance,
     activeProfile,
-    activeAccountSettings,
     openingBalanceInput,
     setOpeningBalanceInput,
-    saveAccountSettings,
+    saveOpeningBalance,
     mainBalance,
     totalIncomeAllTime,
     totalVariableExpenseAllTime,
@@ -27,24 +27,24 @@ export function DashboardScreen({ data }: DashboardScreenProps) {
     monthFixedOccurrences,
     categoryLookup,
     selectedMonth,
+    profileMonthlyBudgets,
   } = data
 
   return (
     <>
       {/* Account initialization prompt - chi hien khi CHUA co tai khoan */}
-      {!hasAccountSettings && !loading ? (
+      {!hasOpeningBalance && !loading ? (
         <AccountInitPanel
           openingBalanceInput={openingBalanceInput}
           onInputChange={setOpeningBalanceInput}
-          onSubmit={() => void saveAccountSettings()}
+          onSubmit={() => void saveOpeningBalance()}
         />
       ) : null}
 
       {/* Account Hero Card - hien khi DA CO tai khoan */}
-      {hasAccountSettings ? (
+      {hasOpeningBalance ? (
         <AccountHeroCard
           activeProfile={activeProfile}
-          accountSettings={activeAccountSettings!}
           mainBalance={mainBalance}
           totalIncomeAllTime={totalIncomeAllTime}
           totalExpenseAllTime={totalVariableExpenseAllTime + totalFixedExpenseAllTime}
@@ -67,6 +67,8 @@ export function DashboardScreen({ data }: DashboardScreenProps) {
           categoryLookup={categoryLookup}
         />
       </section>
+
+      <BudgetHistoryTable budgets={profileMonthlyBudgets} />
     </>
   )
 }

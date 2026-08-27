@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type {
-  AccountSettings,
   Category,
   CategoryDraft,
   CategoryKind,
   FixedExpense,
   FixedExpenseDraft,
+  MonthlyBudget,
   Profile,
   Screen,
   Transaction,
@@ -27,7 +27,7 @@ import { loadAppData } from '../repositories/appData'
 import { createTransaction, deleteTransaction, updateTransaction } from '../repositories/transactions'
 import { createCategory, deleteCategory, seedDefaultCategories, updateCategory } from '../repositories/categories'
 import { createFixedExpense, deleteFixedExpense, updateFixedExpense } from '../repositories/fixedExpenses'
-import { upsertAccountSettings } from '../repositories/accountSettings'
+import { updateOpeningBalance } from '../repositories/profiles'
 
 const defaultProfile: Profile = {
   id: 'default',
@@ -35,6 +35,7 @@ const defaultProfile: Profile = {
   color: '#2563eb',
   accent: '#2563eb',
   soft_accent: '#dbeafe',
+  opening_balance: 0,
   created_at: '',
 }
 
@@ -74,11 +75,11 @@ export function useFinanceData(isAuthenticated: boolean) {
 
   // Data state
   const [profiles, setProfiles] = useState<Profile[]>([defaultProfile])
-  const [accountSettings, setAccountSettings] = useState<AccountSettings[]>([])
   const [openingBalanceInput, setOpeningBalanceInput] = useState('0')
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([])
+  const [monthlyBudgets, setMonthlyBudgets] = useState<MonthlyBudget[]>([])
 
   // Form state
   const [transactionDraft, setTransactionDraft] = useState<TransactionDraft>(() => createTransactionDraft())
@@ -100,13 +101,13 @@ export function useFinanceData(isAuthenticated: boolean) {
   const fixedCategories = useMemo(() => categories.filter((category) => category.kind === 'fixed_expense'), [categories])
   const transactionCategoryOptions = transactionDraft.type === 'income' ? incomeCategories : expenseCategories
 
-  const activeAccountSettings = useMemo(
-    () => accountSettings.find((s) => s.profile_id === activeOwner),
-    [accountSettings, activeOwner],
+  const activeMonthlyBudget = useMemo(
+    () => monthlyBudgets.find((budget) => budget.profile_id === activeOwner && budget.month_start === selectedMonth),
+    [activeOwner, monthlyBudgets, selectedMonth],
   )
 
-  // Chỉ hiện input nếu CHƯA có tài khoản (chưa lưu opening_balance lần nào)
-  const hasAccountSettings = activeAccountSettings != null
+  // Chi hien input neu CHUA nhap so du ban dau (opening_balance con null)
+  const hasOpeningBalance = activeProfile.opening_balance != null
 
   const totalVariableExpenseAllTime = useMemo(
     () => sum(transactions.filter((t) => t.profile_id === activeOwner && t.type === 'expense').map((t) => t.amount)),
@@ -125,19 +126,22 @@ export function useFinanceData(isAuthenticated: boolean) {
     }, 0)
   }, [activeOwner, fixedExpenses, selectedMonth, transactions])
 
-  // Tài khoản chính = Số khởi đầu + Tổng (Thu − Chi − Chi cố định) tất cả các tháng
+  // Tai khoan chinh = So khoi dau + Tong (Thu - Chi - Chi co dinh) tat ca cac thang
   const mainBalance = useMemo(() => {
-    const opening = activeAccountSettings?.opening_balance ?? 0
+    const opening = activeProfile.opening_balance ?? 0
     const ownerTransactions = transactions.filter((t) => t.profile_id === activeOwner)
     const totalIncome = sum(ownerTransactions.filter((t) => t.type === 'income').map((t) => t.amount))
 
     return opening + totalIncome - totalVariableExpenseAllTime - totalFixedExpenseAllTime
-  }, [activeAccountSettings, activeOwner, totalFixedExpenseAllTime, totalVariableExpenseAllTime, transactions])
+  }, [activeOwner, activeProfile.opening_balance, totalFixedExpenseAllTime, totalVariableExpenseAllTime, transactions])
 
-  // So tien dau thang = so du cuoi thang truoc (tinh tu du lieu, khong can bang rieng)
+  // So tien dau thang: uu tien gia tri nhap tay trong monthly_budgets,
+  // neu khong co thi tinh tu du lieu (so du cuoi thang truoc)
   const startingAmount = useMemo(
-    () => startingAmountForMonth(activeAccountSettings?.opening_balance ?? 0, transactions, fixedExpenses, activeOwner, selectedMonth),
-    [activeAccountSettings?.opening_balance, activeOwner, fixedExpenses, selectedMonth, transactions],
+    () =>
+      activeMonthlyBudget?.starting_amount ??
+      startingAmountForMonth(activeProfile.opening_balance ?? 0, transactions, fixedExpenses, activeOwner, selectedMonth),
+    [activeMonthlyBudget?.starting_amount, activeOwner, activeProfile.opening_balance, fixedExpenses, selectedMonth, transactions],
   )
 
   const monthlySummary = useMemo(
@@ -162,6 +166,11 @@ export function useFinanceData(isAuthenticated: boolean) {
 
   const calendarDays = useMemo(() => buildCalendarDays(selectedMonth), [selectedMonth])
 
+  const profileMonthlyBudgets = useMemo(
+    () => monthlyBudgets.filter((budget) => budget.profile_id === activeOwner),
+    [activeOwner, monthlyBudgets],
+  )
+
   const profileFixedExpenses = useMemo(
     () => fixedExpenses.filter((item) => item.profile_id === activeOwner),
     [activeOwner, fixedExpenses],
@@ -175,8 +184,8 @@ export function useFinanceData(isAuthenticated: boolean) {
   }, [isAuthenticated])
 
   useEffect(() => {
-    setOpeningBalanceInput(String(activeAccountSettings?.opening_balance ?? 0))
-  }, [activeAccountSettings?.opening_balance])
+    setOpeningBalanceInput(String(activeProfile.opening_balance ?? 0))
+  }, [activeProfile.opening_balance])
 
   useEffect(() => {
     if (transactionCategoryOptions.length === 0) return
@@ -198,10 +207,10 @@ export function useFinanceData(isAuthenticated: boolean) {
     setLoading(true)
     const result = await loadAppData()
     setProfiles(result.data.profiles)
-    setAccountSettings(result.data.accountSettings)
     setCategories(result.data.categories)
     setTransactions(result.data.transactions)
     setFixedExpenses(result.data.fixedExpenses)
+    setMonthlyBudgets(result.data.monthlyBudgets)
     setActiveOwner(result.data.profileId)
     setMessage(result.message)
     setLoading(false)
@@ -273,20 +282,15 @@ export function useFinanceData(isAuthenticated: boolean) {
     setActiveOwner(fixedExpense.profile_id)
   }
 
-  // CRUD: account settings
-  async function saveAccountSettings() {
+  // CRUD: opening balance (luu tren bang profiles)
+  async function saveOpeningBalance() {
     const openingBalance = parseAmount(openingBalanceInput)
     if (!Number.isFinite(openingBalance)) return setMessage('Số dư khởi tạo không hợp lệ.')
 
-    const { data, error } = await upsertAccountSettings(activeOwner, openingBalance)
+    const { data, error } = await updateOpeningBalance(activeOwner, openingBalance)
     if (error) return setMessage(error)
 
-    const saved = data as AccountSettings
-    setAccountSettings((current) => {
-      const exists = current.some((s) => s.profile_id === activeOwner)
-      if (exists) return current.map((s) => (s.profile_id === activeOwner ? saved : s))
-      return [...current, saved]
-    })
+    setProfiles((current) => current.map((p) => (p.id === activeOwner ? (data as Profile) : p)))
     setMessage('Đã cập nhật tài khoản chính.')
   }
 
@@ -432,8 +436,7 @@ export function useFinanceData(isAuthenticated: boolean) {
     // Data
     profiles,
     activeProfile,
-    activeAccountSettings,
-    hasAccountSettings,
+    hasOpeningBalance,
     openingBalanceInput,
     setOpeningBalanceInput,
     categories,
@@ -443,6 +446,7 @@ export function useFinanceData(isAuthenticated: boolean) {
     fixedCategories,
     transactions,
     profileFixedExpenses,
+    profileMonthlyBudgets,
 
     // Derived
     mainBalance,
@@ -485,7 +489,7 @@ export function useFinanceData(isAuthenticated: boolean) {
     resetFixedExpenseForm,
 
     // Account settings
-    saveAccountSettings,
+    saveOpeningBalance,
   }
 }
 

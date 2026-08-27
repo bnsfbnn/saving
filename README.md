@@ -1,10 +1,9 @@
 # Saving App
 
-Ứng dụng quản lý thu chi cho 2 vợ chồng bằng React + Vite + Supabase.
+Ứng dụng quản lý thu chi bằng React + Vite + Supabase.
 
 ## Nghiệp vụ chính
 
-- Không có đăng nhập; chuyển nhanh giữa giao diện Hồng cho vợ và Xanh dương cho chồng.
 - Tài khoản chính có số dư khởi tạo; mọi giao dịch thu/chi sẽ cộng/trừ vào số dư hiện tại.
 - Category tách theo 3 nhóm: thu, chi thường, chi cố định. App có sẵn danh sách mặc định và có thể thêm/sửa/xóa.
 - Chi thường được quản lý theo calendar tháng, mỗi ngày hiển thị category, số tiền và ghi chú.
@@ -31,7 +30,7 @@ src/
     transactions.ts        — CRUD transactions
     categories.ts          — CRUD categories + seed defaults
     fixedExpenses.ts       — CRUD fixed expenses
-    accountSettings.ts     — upsert opening balance
+    profiles.ts            — update opening balance
   hooks/
     useAuth.ts             — auth gate state
     useFinanceData.ts      — central data hook (state + derived + actions)
@@ -81,11 +80,19 @@ Thư mục `supabase/` gồm 3 file:
 | File | Dùng khi nào |
 |---|---|
 | `migrations/20260825000000_baseline.sql` | Database **mới** (fresh). Tạo toàn bộ schema + RLS + seed. |
-| `migrations/20260825000001_hardening.sql` | Database **đang chạy**, chỉ cần vá nhẹ: bật RLS, thêm index, bỏ FK cứng, seed thêm nếu thiếu. Không mất dữ liệu. |
-| `rebuild_database.sql` | Database **đang chạy**, muốn dọn sạch hoàn toàn về chuẩn baseline mà **không mất dữ liệu**. Chạy trong 1 transaction: snapshot → drop → tạo lại schema chuẩn → restore data → kiểm đếm row count. Lệch số dòng là tự rollback, data an toàn. |
+| `migrations/20260827000000_merge_account_settings_into_profiles.sql` | Database **đang chạy** (chưa merge). Gộp `account_settings` vào `profiles`, xóa bảng thừa, bật RLS. |
+| `rebuild_database.sql` | Database **đang chạy**, muốn dọn sạch hoàn toàn về chuẩn baseline mà **không mất dữ liệu**. Tự xử lý cả DB đã merge và chưa merge. |
 
 ### Cách chạy rebuild_database.sql
 
 1. Supabase Dashboard → Database → Backups → tạo backup (khuyến nghị).
 2. SQL Editor → paste toàn bộ `supabase/rebuild_database.sql` → Run.
-3. Xem kết quả: bảng báo cáo số dòng 7 bảng. Nếu thấy `Rebuild OK` là thành công; nếu lỗi thì transaction đã rollback, DB nguyên trạng cũ.
+3. Xem kết quả: bảng báo cáo số dòng 5 bảng. Nếu thấy `Rebuild OK` là thành công; nếu lỗi thì transaction đã rollback, DB nguyên trạng cũ.
+
+### Bảng
+
+- `profiles` — hồ sơ người dùng + số dư khởi tạo (`opening_balance`)
+- `categories` — danh mục thu/chi (3 nhóm)
+- `transactions` — giao dịch thu/chi
+- `fixed_expenses` — khoản chi cố định (tuần/tháng)
+- `monthly_budgets` — số tiền đầu tháng (nhập tay, ưu tiên hơn số tự tính)

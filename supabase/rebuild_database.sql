@@ -19,23 +19,39 @@
 
 BEGIN;
 
+-- Buoc chuan bi: Dam bao profiles co cot opening_balance (neu chua chay merge migration)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS opening_balance numeric(14,2);
+
+-- Copy opening_balance tu account_settings sang profiles (neu bang account_settings con ton tai)
+DO $
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'account_settings') THEN
+    UPDATE public.profiles p
+    SET opening_balance = a.opening_balance
+    FROM public.account_settings a
+    WHERE a.profile_id = p.id AND p.opening_balance IS NULL;
+
+    UPDATE public.profiles p
+    SET opening_balance = (SELECT a.opening_balance FROM public.account_settings a ORDER BY a.updated_at DESC LIMIT 1)
+    WHERE p.id = 'default' AND p.opening_balance IS NULL
+      AND EXISTS (SELECT 1 FROM public.account_settings);
+  END IF;
+END $;
+
 -- Buoc 0: Ghi nhan so dong TRUOC khi rebuild (de doi chieu)
 CREATE TEMP TABLE _before_counts AS
 SELECT 'profiles'::text AS t, count(*) AS c FROM public.profiles
 UNION ALL SELECT 'categories',           count(*) FROM public.categories
-UNION ALL SELECT 'account_settings',     count(*) FROM public.account_settings
 UNION ALL SELECT 'transactions',         count(*) FROM public.transactions
-UNION ALL SELECT 'fixed_expenses',       count(*) FROM public.fixed_expenses;
+UNION ALL SELECT 'fixed_expenses',       count(*) FROM public.fixed_expenses
+UNION ALL SELECT 'monthly_budgets',      count(*) FROM public.monthly_budgets;
 
 -- Buoc 1: Snapshot du lieu vao bang tam
 CREATE TEMP TABLE _bak_profiles AS
-  SELECT id, name, color, accent, soft_accent, created_at FROM public.profiles;
+  SELECT id, name, color, accent, soft_accent, opening_balance, created_at FROM public.profiles;
 
 CREATE TEMP TABLE _bak_categories AS
   SELECT id, name, kind, color, icon, is_default, created_at FROM public.categories;
-
-CREATE TEMP TABLE _bak_account_settings AS
-  SELECT profile_id, opening_balance, updated_at FROM public.account_settings;
 
 CREATE TEMP TABLE _bak_transactions AS
   SELECT id, profile_id, type, category_id, amount, occurred_on, note, created_at
@@ -46,28 +62,25 @@ CREATE TEMP TABLE _bak_fixed_expenses AS
          day_of_month, day_of_week, start_date, is_active, note, created_at
   FROM public.fixed_expenses;
 
--- Snapshot 2 bang chet (de archive, tranh mat du lieu neu co insert tay truoc day)
 CREATE TEMP TABLE _bak_monthly_budgets AS
-  SELECT * FROM public.monthly_budgets;
+  SELECT id, profile_id, month_start, starting_amount, note, created_at
+  FROM public.monthly_budgets;
 
+-- Snapshot bang chet (de archive, tranh mat du lieu neu co insert tay truoc day)
 CREATE TEMP TABLE _bak_fixed_expense_overrides AS
   SELECT * FROM public.fixed_expense_overrides;
 
 -- Buoc 2: DROP toan bo bang cu (con truoc, cha sau)
 DROP TABLE IF EXISTS public.fixed_expenses         CASCADE;
 DROP TABLE IF EXISTS public.transactions           CASCADE;
-DROP TABLE IF EXISTS public.account_settings       CASCADE;
 DROP TABLE IF EXISTS public.categories             CASCADE;
 DROP TABLE IF EXISTS public.profiles               CASCADE;
+DROP TABLE IF EXISTS public.account_settings       CASCADE;
 
--- DROP 2 bang chet (app khong con dung) + luu du lieu vao bang archive
+-- DROP bang chet fixed_expense_overrides (app khong con dung) + luu du lieu vao bang archive
 DROP TABLE IF EXISTS public.fixed_expense_overrides CASCADE;
-DROP TABLE IF EXISTS public.monthly_budgets        CASCADE;
 
--- Archive du lieu cua 2 bang chet (de phong, co the DROP sau khi xac nhan app chay on)
-CREATE TABLE IF NOT EXISTS public._archive_monthly_budgets AS
-  SELECT * FROM _bak_monthly_budgets;
-
+-- Archive du lieu cua bang chet (de phong, co the DROP sau khi xac nhan app chay on)
 CREATE TABLE IF NOT EXISTS public._archive_fixed_expense_overrides AS
   SELECT * FROM _bak_fixed_expense_overrides;
 
@@ -80,6 +93,7 @@ create table public.profiles (
   color text not null default '#64748b',
   accent text not null default '#64748b',
   soft_accent text not null default '#f1f5f9',
+  opening_balance numeric(14,2),
   created_at timestamptz not null default now()
 );
 
@@ -92,12 +106,6 @@ create table public.categories (
   is_default boolean not null default false,
   created_at timestamptz not null default now(),
   unique (kind, name)
-);
-
-create table public.account_settings (
-  profile_id text primary key,
-  opening_balance numeric(14,2) not null default 0,
-  updated_at timestamptz not null default now()
 );
 
 create table public.transactions (
@@ -131,35 +139,44 @@ create table public.fixed_expenses (
   )
 );
 
+create table public.monthly_budgets (
+  id uuid primary key default gen_random_uuid(),
+  profile_id text not null,
+  month_start date not null,
+  starting_amount numeric(14,2) not null default 0,
+  note text not null default '',
+  created_at timestamptz not null default now(),
+  unique (profile_id, month_start),
+  check (date_trunc('month', month_start)::date = month_start)
+);
+
 create index categories_kind_idx on public.categories (kind, name);
 create index transactions_profile_month_idx on public.transactions (profile_id, occurred_on desc);
 create index transactions_category_id_idx on public.transactions (category_id);
 create index fixed_expenses_profile_idx on public.fixed_expenses (profile_id, is_active);
 create index fixed_expenses_category_id_idx on public.fixed_expenses (category_id);
+create index monthly_budgets_profile_month_idx on public.monthly_budgets (profile_id, month_start desc);
 
 alter table public.profiles enable row level security;
 alter table public.categories enable row level security;
-alter table public.account_settings enable row level security;
 alter table public.transactions enable row level security;
 alter table public.fixed_expenses enable row level security;
+alter table public.monthly_budgets enable row level security;
 
 create policy "Allow all" on public.profiles for all using (true) with check (true);
 create policy "Allow all" on public.categories for all using (true) with check (true);
-create policy "Allow all" on public.account_settings for all using (true) with check (true);
 create policy "Allow all" on public.transactions for all using (true) with check (true);
 create policy "Allow all" on public.fixed_expenses for all using (true) with check (true);
+create policy "Allow all" on public.monthly_budgets for all using (true) with check (true);
 
 -- Buoc 4: Restore du lieu tu snapshot ve (giu nguyen ID goc)
 -- Thu tu: bang cha truoc, bang con sau (vi co FK)
 
-INSERT INTO public.profiles (id, name, color, accent, soft_accent, created_at)
-SELECT id, name, color, accent, soft_accent, created_at FROM _bak_profiles;
+INSERT INTO public.profiles (id, name, color, accent, soft_accent, opening_balance, created_at)
+SELECT id, name, color, accent, soft_accent, opening_balance, created_at FROM _bak_profiles;
 
 INSERT INTO public.categories (id, name, kind, color, icon, is_default, created_at)
 SELECT id, name, kind, color, icon, is_default, created_at FROM _bak_categories;
-
-INSERT INTO public.account_settings (profile_id, opening_balance, updated_at)
-SELECT profile_id, opening_balance, updated_at FROM _bak_account_settings;
 
 INSERT INTO public.transactions (id, profile_id, type, category_id, amount, occurred_on, note, created_at)
 SELECT id, profile_id, type, category_id, amount, occurred_on, note, created_at FROM _bak_transactions;
@@ -167,12 +184,14 @@ SELECT id, profile_id, type, category_id, amount, occurred_on, note, created_at 
 INSERT INTO public.fixed_expenses (id, profile_id, category_id, name, amount, frequency, day_of_month, day_of_week, start_date, is_active, note, created_at)
 SELECT id, profile_id, category_id, name, amount, frequency, day_of_month, day_of_week, start_date, is_active, note, created_at FROM _bak_fixed_expenses;
 
+INSERT INTO public.monthly_budgets (id, profile_id, month_start, starting_amount, note, created_at)
+SELECT id, profile_id, month_start, starting_amount, note, created_at FROM _bak_monthly_budgets;
+
 -- Neu bang profiles/categories trong (DB chua co du lieu), nap mac dinh
 INSERT INTO public.profiles (id, name, color, accent, soft_accent)
 SELECT v.id, v.name, v.color, v.accent, v.soft_accent
 FROM (VALUES
-  ('wife', 'Vợ', '#db2777', '#db2777', '#fce7f3'),
-  ('husband', 'Chồng', '#2563eb', '#2563eb', '#dbeafe')
+  ('default', 'Default', '#2563eb', '#2563eb', '#dbeafe')
 ) AS v(id, name, color, accent, soft_accent)
 WHERE NOT EXISTS (SELECT 1 FROM public.profiles);
 
@@ -206,9 +225,9 @@ BEGIN
     JOIN (
       SELECT 'profiles'::text AS t, count(*) AS c FROM public.profiles
       UNION ALL SELECT 'categories',           count(*) FROM public.categories
-      UNION ALL SELECT 'account_settings',     count(*) FROM public.account_settings
       UNION ALL SELECT 'transactions',         count(*) FROM public.transactions
       UNION ALL SELECT 'fixed_expenses',       count(*) FROM public.fixed_expenses
+      UNION ALL SELECT 'monthly_budgets',      count(*) FROM public.monthly_budgets
           ) a ON a.t = b.t
     WHERE b.c <> a.c
   LOOP

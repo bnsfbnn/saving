@@ -11,6 +11,7 @@ export type Profile = {
   color: string
   accent: string
   soft_accent: string
+  opening_balance: number
   created_at: string
 }
 
@@ -50,10 +51,13 @@ export type FixedExpense = {
   created_at: string
 }
 
-export type AccountSettings = {
+export type MonthlyBudget = {
+  id: string
   profile_id: string
-  opening_balance: number
-  updated_at: string
+  month_start: string
+  starting_amount: number
+  note: string
+  created_at: string
 }
 
 // ── Draft types (for forms) ───────────────────────────────────────────────────

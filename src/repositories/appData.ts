@@ -1,8 +1,8 @@
 import { supabase } from '../lib/supabase'
 import type {
-  AccountSettings,
   Category,
   FixedExpense,
+  MonthlyBudget,
   Profile,
   Transaction,
 } from '../types'
@@ -11,15 +11,11 @@ import { defaultCategories } from '../data/defaults'
 export type AppData = {
   profiles: Profile[]
   profileId: string
-  accountSettings: AccountSettings[]
   categories: Category[]
   transactions: Transaction[]
   fixedExpenses: FixedExpense[]
+  monthlyBudgets: MonthlyBudget[]
 }
-
-const fallbackAccountSettings: AccountSettings[] = [
-  { profile_id: 'default', opening_balance: 0, updated_at: new Date().toISOString() },
-]
 
 const fallbackProfile: Profile = {
   id: 'default',
@@ -27,6 +23,7 @@ const fallbackProfile: Profile = {
   color: '#2563eb',
   accent: '#2563eb',
   soft_accent: '#dbeafe',
+  opening_balance: 0,
   created_at: new Date().toISOString(),
 }
 
@@ -37,7 +34,6 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
       data: {
         profiles: [fallbackProfile],
         profileId: fallbackProfile.id,
-        accountSettings: fallbackAccountSettings,
         categories: defaultCategories.map((category, index) => ({
           id: `default-${index}`,
           ...category,
@@ -46,6 +42,7 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
         })),
         transactions: [],
         fixedExpenses: [],
+        monthlyBudgets: [],
       },
       message: 'Chưa cấu hình Supabase. App đang hiển thị dữ liệu mặc định và chưa thể lưu.',
     }
@@ -56,27 +53,27 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     categoriesRes,
     transactionsRes,
     fixedExpensesRes,
-    accountRes,
+    monthlyBudgetsRes,
   ] = await Promise.all([
     supabase.from('profiles').select('*').order('created_at', { ascending: true }).maybeSingle(),
     supabase.from('categories').select('*').order('kind', { ascending: true }).order('name', { ascending: true }),
     supabase.from('transactions').select('*').order('occurred_on', { ascending: false }),
     supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false }),
-    supabase.from('account_settings').select('*').order('profile_id', { ascending: true }),
+    supabase.from('monthly_budgets').select('*').order('month_start', { ascending: false }),
   ])
 
   const firstError =
-    profilesRes.error ?? categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error ?? accountRes.error
+    profilesRes.error ?? categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error ?? monthlyBudgetsRes.error
 
   if (firstError) {
     return {
       data: {
         profiles: [fallbackProfile],
         profileId: fallbackProfile.id,
-        accountSettings: fallbackAccountSettings,
         categories: [],
         transactions: [],
         fixedExpenses: [],
+        monthlyBudgets: [],
       },
       message: firstError.message,
     }
@@ -102,32 +99,18 @@ export async function loadAppData(): Promise<{ data: AppData; message: string }>
     if (!error) categories = (data as Category[]) ?? []
   }
 
-  // Auto-create account settings if missing
-  let accountSettings = ((accountRes.data as AccountSettings[]) ?? []).filter(
-    (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
-  )
-
-  if (accountSettings.length === 0) {
-    const { data } = await supabase
-      .from('account_settings')
-      .upsert({ profile_id: currentProfileId, opening_balance: 0 }, { onConflict: 'profile_id' })
-      .select('*')
-
-    if (data) {
-      accountSettings = data as AccountSettings[]
-    }
-  }
-
   return {
     data: {
       profiles: profiles.length > 0 ? profiles : [fallbackProfile],
       profileId: currentProfileId,
-      accountSettings,
       categories,
       transactions: ((transactionsRes.data as Transaction[]) ?? []).filter(
         (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
       ),
       fixedExpenses: ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter(
+        (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
+      ),
+      monthlyBudgets: ((monthlyBudgetsRes.data as MonthlyBudget[]) ?? []).filter(
         (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
       ),
     },
