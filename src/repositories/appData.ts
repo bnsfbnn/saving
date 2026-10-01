@@ -1,0 +1,110 @@
+import { supabase } from '../lib/supabase'
+import type {
+  Category,
+  FixedExpense,
+  Profile,
+  Transaction,
+} from '../types'
+import { defaultCategories } from '../data/defaults'
+
+export type AppData = {
+  profiles: Profile[]
+  profileId: string
+  categories: Category[]
+  transactions: Transaction[]
+  fixedExpenses: FixedExpense[]
+}
+
+const fallbackProfile: Profile = {
+  id: 'default',
+  name: 'Default',
+  color: '#2563eb',
+  accent: '#2563eb',
+  soft_accent: '#dbeafe',
+  opening_balance: 0,
+  created_at: new Date().toISOString(),
+}
+
+/** Load all app data from Supabase. Falls back to defaults if not configured. */
+export async function loadAppData(): Promise<{ data: AppData; message: string }> {
+  if (!supabase) {
+    return {
+      data: {
+        profiles: [fallbackProfile],
+        profileId: fallbackProfile.id,
+        categories: defaultCategories.map((category, index) => ({
+          id: `default-${index}`,
+          ...category,
+          is_default: true,
+          created_at: new Date().toISOString(),
+        })),
+        transactions: [],
+        fixedExpenses: [],
+      },
+      message: 'Chưa cấu hình Supabase. App đang hiển thị dữ liệu mặc định và chưa thể lưu.',
+    }
+  }
+
+  const [
+    profilesRes,
+    categoriesRes,
+    transactionsRes,
+    fixedExpensesRes,
+  ] = await Promise.all([
+    supabase.from('profiles').select('*').order('created_at', { ascending: true }).maybeSingle(),
+    supabase.from('categories').select('*').order('kind', { ascending: true }).order('name', { ascending: true }),
+    supabase.from('transactions').select('*').order('occurred_on', { ascending: false }),
+    supabase.from('fixed_expenses').select('*').order('created_at', { ascending: false }),
+  ])
+
+  const firstError =
+    profilesRes.error ?? categoriesRes.error ?? transactionsRes.error ?? fixedExpensesRes.error
+
+  if (firstError) {
+    return {
+      data: {
+        profiles: [fallbackProfile],
+        profileId: fallbackProfile.id,
+        categories: [],
+        transactions: [],
+        fixedExpenses: [],
+      },
+      message: firstError.message,
+    }
+  }
+
+  let profiles = Array.isArray(profilesRes.data as Profile[] | null) ? (profilesRes.data as Profile[]) : []
+  if (!profiles.length && (profilesRes.data as Profile | null)) {
+    profiles = [profilesRes.data as Profile]
+  }
+
+  const currentProfileId = profiles.length === 1 ? profiles[0].id : 'default'
+
+  // Auto-seed categories if empty
+  let categories = (categoriesRes.data as Category[]) ?? []
+  if (categories.length === 0) {
+    const { data, error } = await supabase
+      .from('categories')
+      .insert(defaultCategories.map((category) => ({ ...category, is_default: true })))
+      .select('*')
+      .order('kind', { ascending: true })
+      .order('name', { ascending: true })
+
+    if (!error) categories = (data as Category[]) ?? []
+  }
+
+  return {
+    data: {
+      profiles: profiles.length > 0 ? profiles : [fallbackProfile],
+      profileId: currentProfileId,
+      categories,
+      transactions: ((transactionsRes.data as Transaction[]) ?? []).filter(
+        (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
+      ),
+      fixedExpenses: ((fixedExpensesRes.data as FixedExpense[]) ?? []).filter(
+        (item) => item.profile_id === currentProfileId || currentProfileId === 'default',
+      ),
+    },
+    message: '',
+  }
+}

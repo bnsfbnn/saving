@@ -1,3 +1,5 @@
+// ── Domain types ──────────────────────────────────────────────────────────────
+
 export type CategoryKind = 'income' | 'expense' | 'fixed_expense'
 export type TransactionType = 'income' | 'expense'
 export type FixedFrequency = 'weekly' | 'monthly'
@@ -9,6 +11,7 @@ export type Profile = {
   color: string
   accent: string
   soft_accent: string
+  opening_balance: number
   created_at: string
 }
 
@@ -48,30 +51,26 @@ export type FixedExpense = {
   created_at: string
 }
 
-export type FixedExpenseOverride = {
-  id: string
-  fixed_expense_id: string
-  profile_id: string
-  month_start: string
-  amount: number
-  is_active: boolean
-  note: string
-  created_at: string
-}
+// ── Draft types (for forms) ───────────────────────────────────────────────────
 
-export type MonthlyBudget = {
-  id: string
-  profile_id: string
-  month_start: string
-  starting_amount: number
+export type TransactionDraft = {
+  type: TransactionType
+  category_id: string
+  amount: string
+  occurred_on: string
   note: string
-  created_at: string
-}
-
-export type AccountSettings = {
-  profile_id: string
-  opening_balance: number
-  updated_at: string
 }
 
 export type CategoryDraft = Pick<Category, 'name' | 'kind' | 'color' | 'icon'>
+
+export type FixedExpenseDraft = {
+  name: string
+  category_id: string
+  amount: string
+  frequency: FixedFrequency
+  day_of_month: string
+  day_of_week: string
+  start_date: string
+  is_active: boolean
+  note: string
+}
