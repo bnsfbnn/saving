@@ -179,16 +179,18 @@ function App() {
   const totalFixedExpenseAllTime = useMemo(() => {
     const ownerTransactions = transactions.filter((t) => t.profile_id === activeOwner)
     const txMonths = [...new Set(ownerTransactions.map((t) => t.occurred_on.slice(0, 7)))]
-    const currentMonth = selectedMonth.slice(0, 7)
+    // Số dư tài khoản hiện tại không phụ thuộc vào tháng đang xem trên màn hình.
+    const currentMonth = todayISO().slice(0, 7)
     const allMonths = [...new Set([...txMonths, currentMonth])].sort()
 
     return allMonths.reduce((acc, month) => {
       const occurrences = fixedOccurrencesForMonth(fixedExpenses, activeOwner, `${month}-01`, fixedExpenseOverrides)
       return acc + sum(occurrences.map((o) => o.amount))
     }, 0)
-  }, [activeOwner, fixedExpenseOverrides, fixedExpenses, selectedMonth, transactions])
+  }, [activeOwner, fixedExpenseOverrides, fixedExpenses, transactions])
 
-  // Tài khoản chính = Số khởi đầu + Tổng (Thu − Chi − Chi cố định) tất cả các tháng
+  // Tài khoản chính = số tiền hiện tại, độc lập với tháng đang được chọn
+
   const mainBalance = useMemo(() => {
     const opening = activeAccountSettings?.opening_balance ?? 0
     const ownerTransactions = transactions.filter((t) => t.profile_id === activeOwner)
