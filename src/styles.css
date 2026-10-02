@@ -67,6 +67,21 @@ p { margin-top: 0; }
 
 h1 { margin-bottom: 0; font-size: 1.65rem; line-height: 1.15; }
 h2 { margin-bottom: 14px; font-size: 1.05rem; }
+
+.goals-grid, .insights-grid { display: grid; gap: 16px; }
+.goal-form { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 12px; align-items: end; }
+.goal-list, .insight-list { display: grid; gap: 10px; }
+.goal-card { display: grid; gap: 12px; }
+.goal-card .section-head strong, .insight-score { color: var(--accent); font-size: 1.5rem; }
+.progress-track { height: 12px; overflow: hidden; border-radius: 99px; background: var(--surface-muted); }
+.progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.goal-values, .insight-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.insight-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.insight-row:last-child { border-bottom: 0; }
+.insight-row small { display: block; color: var(--muted); margin-top: 3px; }
+.trend-up { color: var(--danger); }
+.insight-tips li { margin: 10px 0; color: var(--muted); }
+
 p { color: var(--muted); }
 
 .theme-wife { --accent: #db2777; --accent-soft: #fce7f3; }

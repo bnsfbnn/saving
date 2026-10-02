@@ -12,6 +12,8 @@ import { DashboardScreen } from './components/dashboard/DashboardScreen'
 import { CalendarScreen } from './components/calendar/CalendarScreen'
 import { FixedScreen } from './components/fixed/FixedScreen'
 import { CategoriesScreen } from './components/categories/CategoriesScreen'
+import { GoalsScreen } from './components/goals/GoalsScreen'
+import { InsightsScreen } from './components/insights/InsightsScreen'
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -68,6 +70,8 @@ function App() {
         {screen === 'calendar' ? <CalendarScreen data={data} /> : null}
         {screen === 'fixed' ? <FixedScreen data={data} /> : null}
         {screen === 'categories' ? <CategoriesScreen data={data} /> : null}
+        {screen === 'goals' ? <GoalsScreen data={data} /> : null}
+        {screen === 'insights' ? <InsightsScreen data={data} /> : null}
       </main>
     </div>
   )

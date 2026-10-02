@@ -3,7 +3,7 @@
 export type CategoryKind = 'income' | 'expense' | 'fixed_expense'
 export type TransactionType = 'income' | 'expense'
 export type FixedFrequency = 'weekly' | 'monthly'
-export type Screen = 'dashboard' | 'calendar' | 'fixed' | 'categories'
+export type Screen = 'dashboard' | 'calendar' | 'fixed' | 'categories' | 'goals' | 'insights'
 
 export type Profile = {
   id: string
