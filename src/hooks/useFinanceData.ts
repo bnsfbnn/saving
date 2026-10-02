@@ -78,6 +78,7 @@ export function useFinanceData(isAuthenticated: boolean) {
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([])
+  const [goals, setGoals] = useState<Array<{ id: string; name: string; target: number; saved: number; deadline: string }>>([])
 
   // Form state
   const [transactionDraft, setTransactionDraft] = useState<TransactionDraft>(() => createTransactionDraft())
@@ -156,6 +157,24 @@ export function useFinanceData(isAuthenticated: boolean) {
   )
 
   const calendarDays = useMemo(() => buildCalendarDays(selectedMonth), [selectedMonth])
+
+  const spendingInsights = useMemo(() => {
+    const current = monthTransactions.filter((item) => item.type === 'expense')
+    const previousMonth = `${selectedMonth.slice(0, 5)}${String(Math.max(1, Number(selectedMonth.slice(5, 7)) - 1)).padStart(2, '0')}-01`
+    const previous = transactionsForProfileAndMonth(transactions, activeOwner, previousMonth).filter((item) => item.type === 'expense')
+    const totalCurrent = sum(current.map((item) => item.amount))
+    const totalPrevious = sum(previous.map((item) => item.amount))
+    const byCategory = (items: Transaction[]) => items.reduce<Record<string, number>>((result, item) => ({ ...result, [item.category_id]: (result[item.category_id] ?? 0) + item.amount }), {})
+    const currentByCategory = byCategory(current)
+    const previousByCategory = byCategory(previous)
+    const rising = Object.entries(currentByCategory).map(([categoryId, amount]) => ({ category: categoryLookup.get(categoryId), current: amount, change: Math.round(((amount - (previousByCategory[categoryId] ?? 0)) / Math.max(previousByCategory[categoryId] ?? 1, 1)) * 100) })).filter((item) => item.category && item.change > 20).sort((a, b) => b.change - a.change).slice(0, 4).map((item) => ({ ...item, category: item.category! }))
+    const largest = [...current].sort((a, b) => b.amount - a.amount).slice(0, 5).map((item) => ({ ...item, category: categoryLookup.get(item.category_id) ?? { name: 'Khác' } }))
+    const score = Math.max(0, Math.min(100, 100 - Math.round(Math.max(0, ((totalCurrent - totalPrevious) / Math.max(totalPrevious, 1)) * 40))))
+    return { score, summary: totalPrevious && totalCurrent > totalPrevious ? `Tổng chi đang tăng ${Math.round(((totalCurrent - totalPrevious) / totalPrevious) * 100)}% so với tháng trước.` : 'Chi tiêu đang trong vùng kiểm soát tốt so với tháng trước.', rising, largest, tips: rising.length ? rising.slice(0, 3).map((item) => `Đặt ngân sách cho ${item.category.name} và giảm khoảng ${Math.round(item.current * 0.15).toLocaleString('vi-VN')}đ trong tháng tới.`) : ['Tiếp tục ghi chép ngay sau mỗi khoản chi để giữ thói quen tốt.', 'Ưu tiên xem lại các khoản chi lớn trước khi cắt giảm các khoản nhỏ.'] }
+  }, [activeOwner, categoryLookup, monthTransactions, selectedMonth, transactions])
+
+  function addGoal(goal: { name: string; target: number; deadline: string }) { setGoals((current) => [...current, { ...goal, id: crypto.randomUUID(), saved: 0 }]) }
+  function updateGoalSaved(id: string, saved: number) { setGoals((current) => current.map((goal) => goal.id === id ? { ...goal, saved: Math.max(0, saved) } : goal)) }
 
   const profileFixedExpenses = useMemo(
     () => fixedExpenses.filter((item) => item.profile_id === activeOwner),
@@ -442,6 +461,10 @@ export function useFinanceData(isAuthenticated: boolean) {
     monthFixedOccurrences,
     categoryBreakdown,
     calendarDays,
+    goals,
+    addGoal,
+    updateGoalSaved,
+    spendingInsights,
 
     // Transaction form
     transactionDraft,
