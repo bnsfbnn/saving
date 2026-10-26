@@ -1156,6 +1156,35 @@ td, th { padding: 14px 10px; }
 }
 
   @media (max-width: 600px) {
+  .mobile-topbar {
+    min-height: 60px;
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .hamburger-btn {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--surface-muted);
+  }
+
+  .mobile-topbar-info strong,
+  .mobile-topbar-info span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-topbar-right { flex: 0 0 auto; }
+  .mobile-month-picker input {
+    width: 126px;
+    min-width: 0;
+    min-height: 38px;
+    border-radius: 11px;
+  }
+
   .breakdown-chart-layout { width: 100%; }
   .donut-chart { width: min(100%, 330px); margin-block: 30px 40px; }
   .donut-label { transform: rotate(var(--label-angle)) translateY(-126px) rotate(calc(var(--label-angle) * -1)); }
@@ -1166,5 +1195,57 @@ td, th { padding: 14px 10px; }
   .account-hero-card { padding: 20px; }
   .account-hero-balance strong, .account-hero-balance span { font-size: 1.9rem; }
   .metric-card { border-radius: 14px; }
-  .bottom-nav { background: rgba(255,255,255,.92); backdrop-filter: blur(16px); border-top-color: var(--line); }
+  .bottom-nav {
+    background: rgba(255,255,255,.94);
+    backdrop-filter: blur(18px);
+    border-top-color: var(--line);
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+    gap: 4px;
+  }
+
+  .bottom-nav::-webkit-scrollbar { display: none; }
+
+  .bottom-nav-btn {
+    flex: 1 0 72px;
+    min-height: 50px;
+    justify-content: center;
+    border-radius: 12px;
+    padding: 6px 5px;
+    font-size: .68rem;
+  }
+
+  .bottom-nav-btn.active { background: var(--accent-soft); }
+  .bottom-nav-icon { font-size: 1.18rem; }
+  .bottom-nav-label {
+    max-width: 78px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .content { min-width: 0; }
+  .section-head { align-items: flex-start; }
+  .section-head > * { min-width: 0; }
+  .section-head h2 { line-height: 1.25; }
+  .form-actions button { flex: 1 1 140px; }
+  .row-actions button { min-height: 40px; }
+  .calendar-panel { padding-left: 10px; padding-right: 10px; }
+  .calendar-grid, .calendar-weekdays { gap: 3px; }
+  .calendar-day { min-height: 78px; }
+  .calendar-day strong { font-size: .78rem; }
+
+  .modal-overlay { padding: 12px; align-items: end; }
+  .modal-card {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    border-radius: 22px 22px 16px 16px;
+    padding: 20px;
+  }
+
+  .auth-shell { padding: 16px; }
+  .auth-card { padding: 24px 20px; }
 }
